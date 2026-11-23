@@ -1,0 +1,1016 @@
+{
+  "views": {
+    "pooled": {
+      "n": 1205,
+      "adverse": 38,
+      "topped": 17,
+      "rankings": {
+        "ear": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.11659877104042034,
+              "mean_ret": 0.04963041716298324,
+              "adverse_rate": 0.06297229219143577,
+              "adverse": 25,
+              "topped": 4,
+              "median_hold": 97.0,
+              "mean_score": 0.19299014372869258
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.03382102924662284,
+              "mean_ret": 0.012314122020850462,
+              "adverse_rate": 0.0199501246882793,
+              "adverse": 8,
+              "topped": 2,
+              "median_hold": 92.0,
+              "mean_score": 0.038683512301840264
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.023431037739324433,
+              "mean_ret": 0.006637755661012617,
+              "adverse_rate": 0.012285012285012284,
+              "adverse": 5,
+              "topped": 11,
+              "median_hold": 81.0,
+              "mean_score": -0.0662230819557899
+            }
+          },
+          "top_minus_bottom": 0.0931677333010959,
+          "top_minus_bottom_ci95": [
+            0.054546072334934755,
+            0.13540908203147514
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.05305295965831232,
+          "top_minus_all_ci95": [
+            0.031248518865398044,
+            0.07374226568377876
+          ],
+          "share_gt0": 1.0
+        },
+        "ear_model": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.10939611375408477,
+              "mean_ret": 0.05055375566967861,
+              "adverse_rate": 0.0654911838790932,
+              "adverse": 26,
+              "topped": 4,
+              "median_hold": 109.0,
+              "mean_score": 0.20519704228438612
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.043608274551282744,
+              "mean_ret": 0.015042493530182511,
+              "adverse_rate": 0.0199501246882793,
+              "adverse": 8,
+              "topped": 2,
+              "median_hold": 90.0,
+              "mean_score": 0.026752629353633164
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.011436944927042189,
+              "mean_ret": 0.0030489537877934217,
+              "adverse_rate": 0.009828009828009828,
+              "adverse": 4,
+              "topped": 11,
+              "median_hold": 78.0,
+              "mean_score": -0.07792897137452849
+            }
+          },
+          "top_minus_bottom": 0.09795916882704259,
+          "top_minus_bottom_ci95": [
+            0.05516937734780909,
+            0.1536821966423782
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.04585030237197675,
+          "top_minus_all_ci95": [
+            0.02733532137116749,
+            0.067383695307229
+          ],
+          "share_gt0": 1.0
+        },
+        "ear_stack": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.10926862063716511,
+              "mean_ret": 0.04838419498680557,
+              "adverse_rate": 0.0654911838790932,
+              "adverse": 26,
+              "topped": 4,
+              "median_hold": 103.0,
+              "mean_score": 0.20000609606885889
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.03996140680319351,
+              "mean_ret": 0.01374547894309963,
+              "adverse_rate": 0.0199501246882793,
+              "adverse": 8,
+              "topped": 2,
+              "median_hold": 89.0,
+              "mean_score": 0.036303334334555556
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.022497474691168296,
+              "mean_ret": 0.006443102290301607,
+              "adverse_rate": 0.009828009828009828,
+              "adverse": 4,
+              "topped": 11,
+              "median_hold": 83.0,
+              "mean_score": -0.06621716694236449
+            }
+          },
+          "top_minus_bottom": 0.08677114594599682,
+          "top_minus_bottom_ci95": [
+            0.0553746376152649,
+            0.12667259987058235
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.04572280925505709,
+          "top_minus_all_ci95": [
+            0.028415243082772566,
+            0.06648626111674003
+          ],
+          "share_gt0": 1.0
+        },
+        "spread": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.09776731246048317,
+              "mean_ret": 0.05329112987606545,
+              "adverse_rate": 0.07304785894206549,
+              "adverse": 29,
+              "topped": 3,
+              "median_hold": 143.0,
+              "mean_score": 0.08049667287492128
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.04059686394052666,
+              "mean_ret": 0.01209016296453125,
+              "adverse_rate": 0.014962593516209476,
+              "adverse": 6,
+              "topped": 4,
+              "median_hold": 83.0,
+              "mean_score": 0.013721732040430314
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.01416461669984673,
+              "mean_ret": 0.003287644197843999,
+              "adverse_rate": 0.007371007371007371,
+              "adverse": 3,
+              "topped": 10,
+              "median_hold": 69.0,
+              "mean_score": -0.012308686906817077
+            }
+          },
+          "top_minus_bottom": 0.08360269576063645,
+          "top_minus_bottom_ci95": [
+            0.04977841663381198,
+            0.12696995434421532
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.034221501078375155,
+          "top_minus_all_ci95": [
+            0.01949665080562619,
+            0.05256571879404991
+          ],
+          "share_gt0": 1.0
+        },
+        "spread_ann": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.10582525149321098,
+              "mean_ret": 0.05491622519087328,
+              "adverse_rate": 0.0654911838790932,
+              "adverse": 26,
+              "topped": 3,
+              "median_hold": 134.0,
+              "mean_score": 0.34984930799605257
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.027471872472553466,
+              "mean_ret": 0.008440799214041622,
+              "adverse_rate": 0.022443890274314215,
+              "adverse": 9,
+              "topped": 3,
+              "median_hold": 83.0,
+              "mean_score": 0.058375405209300825
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.021336803550272433,
+              "mean_ret": 0.005298042291130553,
+              "adverse_rate": 0.007371007371007371,
+              "adverse": 3,
+              "topped": 11,
+              "median_hold": 77.0,
+              "mean_score": -0.07728522656420739
+            }
+          },
+          "top_minus_bottom": 0.08448844794293855,
+          "top_minus_bottom_ci95": [
+            0.047459863342962115,
+            0.12696670144004346
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.04227944011110296,
+          "top_minus_all_ci95": [
+            0.027964502915822725,
+            0.05926819870887226
+          ],
+          "share_gt0": 1.0
+        },
+        "mkt": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.010917339659019086,
+              "mean_ret": 0.002410094740363421,
+              "adverse_rate": 0.010075566750629723,
+              "adverse": 4,
+              "topped": 10,
+              "median_hold": 63.0,
+              "mean_score": -0.009301575442732217
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.048856032964419455,
+              "mean_ret": 0.014858923290480183,
+              "adverse_rate": 0.022443890274314215,
+              "adverse": 9,
+              "topped": 3,
+              "median_hold": 83.0,
+              "mean_score": -0.060540715333894234
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.09256440440772316,
+              "mean_ret": 0.05019058782970685,
+              "adverse_rate": 0.06142506142506143,
+              "adverse": 25,
+              "topped": 4,
+              "median_hold": 140.0,
+              "mean_score": -0.3412097090046792
+            }
+          },
+          "top_minus_bottom": -0.08164706474870408,
+          "top_minus_bottom_ci95": [
+            -0.12764096050564488,
+            -0.03840967911062765
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": -0.05262847172308893,
+          "top_minus_all_ci95": [
+            -0.08151571293356667,
+            -0.0262565645861518
+          ],
+          "share_gt0": 0.0
+        },
+        "ear_no_break": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.10217462727616046,
+              "mean_ret": 0.05052004896368203,
+              "adverse_rate": 0.07052896725440806,
+              "adverse": 28,
+              "topped": 4,
+              "median_hold": 123.0,
+              "mean_score": 0.2046553123613018
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.04420949555610441,
+              "mean_ret": 0.01532901922913469,
+              "adverse_rate": 0.017456359102244388,
+              "adverse": 7,
+              "topped": 3,
+              "median_hold": 93.0,
+              "mean_score": 0.02303440205815223
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.012000353943067602,
+              "mean_ret": 0.002799530586321233,
+              "adverse_rate": 0.007371007371007371,
+              "adverse": 3,
+              "topped": 10,
+              "median_hold": 69.0,
+              "mean_score": -0.07695732922966642
+            }
+          },
+          "top_minus_bottom": 0.09017427333309286,
+          "top_minus_bottom_ci95": [
+            0.0538719204003879,
+            0.13473950540613314
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.03862881589405244,
+          "top_minus_all_ci95": [
+            0.02249764063590212,
+            0.05892753950826049
+          ],
+          "share_gt0": 1.0
+        },
+        "ear_no_duration": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.09956439708940042,
+              "mean_ret": 0.05119865763582749,
+              "adverse_rate": 0.07052896725440806,
+              "adverse": 28,
+              "topped": 3,
+              "median_hold": 135.0,
+              "mean_score": 0.2141298091918723
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.041662525188182094,
+              "mean_ret": 0.012897122630077836,
+              "adverse_rate": 0.017456359102244388,
+              "adverse": 7,
+              "topped": 3,
+              "median_hold": 81.0,
+              "mean_score": 0.038643021218036054
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.018089630209628248,
+              "mean_ret": 0.004533640889466321,
+              "adverse_rate": 0.007371007371007371,
+              "adverse": 3,
+              "topped": 11,
+              "median_hold": 76.0,
+              "mean_score": -0.049603267803090226
+            }
+          },
+          "top_minus_bottom": 0.08147476687977218,
+          "top_minus_bottom_ci95": [
+            0.04476281126457785,
+            0.12350027443075962
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.0360185857072924,
+          "top_minus_all_ci95": [
+            0.017307359467772586,
+            0.054635744491646626
+          ],
+          "share_gt0": 1.0
+        },
+        "ear_no_loss": {
+          "terciles": {
+            "top": {
+              "n": 397,
+              "annual_return": 0.11710656912491933,
+              "mean_ret": 0.04918387005537052,
+              "adverse_rate": 0.06297229219143577,
+              "adverse": 25,
+              "topped": 4,
+              "median_hold": 92.0,
+              "mean_score": 0.1945064082817045
+            },
+            "middle": {
+              "n": 401,
+              "annual_return": 0.033445873004365675,
+              "mean_ret": 0.012302752411314477,
+              "adverse_rate": 0.022443890274314215,
+              "adverse": 9,
+              "topped": 2,
+              "median_hold": 93.0,
+              "mean_score": 0.039896931423655496
+            },
+            "bottom": {
+              "n": 407,
+              "annual_return": 0.024847549668289882,
+              "mean_ret": 0.007084533093804223,
+              "adverse_rate": 0.009828009828009828,
+              "adverse": 4,
+              "topped": 11,
+              "median_hold": 82.0,
+              "mean_score": -0.06475089819839502
+            }
+          },
+          "top_minus_bottom": 0.09225901945662945,
+          "top_minus_bottom_ci95": [
+            0.05244489031671476,
+            0.13496355606175017
+          ],
+          "all": 0.06354581138210802,
+          "top_minus_all": 0.05356075774281131,
+          "top_minus_all_ci95": [
+            0.030952668565105142,
+            0.07523271693086013
+          ],
+          "share_gt0": 1.0
+        }
+      },
+      "model_top_minus_benchmark_top": {
+        "spread": {
+          "point": 0.018831458579937163,
+          "ci95": [
+            0.004293645327259038,
+            0.03295785637717254
+          ],
+          "overlap": 0.7329974811083123,
+          "share_gt0": 0.9925
+        },
+        "spread_ann": {
+          "point": 0.010773519547209356,
+          "ci95": [
+            -0.003729983162901413,
+            0.025145963489841196
+          ],
+          "overlap": 0.7909319899244333,
+          "share_gt0": 0.916
+        }
+      },
+      "rank_correlation_with_model": {
+        "ear_no_break": 0.8822535493909398,
+        "ear_no_duration": 0.9375506635773861,
+        "ear_no_loss": 0.996652138598443,
+        "spread": 0.8368351739612694,
+        "spread_ann": 0.879662413582688,
+        "mkt": -0.646307556523698,
+        "ear_stack": 0.9542700813353726,
+        "ear_model": 0.8997566515995312
+      },
+      "calendar": {
+        "all": {
+          "annual_return": 0.07189894686474765,
+          "volatility": 0.07514227197738528,
+          "sharpe": 0.7186235224240942,
+          "max_drawdown": -0.20202580978195583,
+          "days": 3490,
+          "deals": 1205,
+          "mean_open": 30.930372492836675
+        },
+        "top_model": {
+          "annual_return": 0.0930144839932757,
+          "volatility": 0.09391077355823359,
+          "sharpe": 0.799850096573721,
+          "max_drawdown": -0.2555009078577475,
+          "days": 3490,
+          "deals": 623,
+          "mean_open": 17.612607449856732
+        },
+        "top_spread": {
+          "annual_return": 0.08701048924090204,
+          "volatility": 0.09005420014716818,
+          "sharpe": 0.7674327953005037,
+          "max_drawdown": -0.22830456320619763,
+          "days": 3490,
+          "deals": 620,
+          "mean_open": 20.65272206303725
+        },
+        "model_minus_all": {
+          "return": 0.021115537128528053,
+          "return_ci95": [
+            -0.0012934581473363752,
+            0.045382536528868395
+          ],
+          "sharpe": 0.08122657414962675,
+          "sharpe_ci95": [
+            -0.16792903350449662,
+            0.3167071138357684
+          ]
+        },
+        "model_minus_spread": {
+          "return": 0.006003994752373662,
+          "return_ci95": [
+            -0.009301912249565027,
+            0.020373145641841034
+          ],
+          "sharpe": 0.03241730127321729,
+          "sharpe_ci95": [
+            -0.12135401164674338,
+            0.20234486882872096
+          ]
+        },
+        "start": "2013-01-04",
+        "end": "2026-11-12"
+      }
+    },
+    "test": {
+      "n": 623,
+      "adverse": 22,
+      "topped": 6,
+      "rankings": {
+        "ear": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.14390805616262342,
+              "mean_ret": 0.061134607393889054,
+              "adverse_rate": 0.05339805825242718,
+              "adverse": 11,
+              "topped": 2,
+              "median_hold": 84.5,
+              "mean_score": 0.24798855936618583
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.021121167262471374,
+              "mean_ret": 0.008373268784498778,
+              "adverse_rate": 0.033816425120772944,
+              "adverse": 7,
+              "topped": 1,
+              "median_hold": 95.0,
+              "mean_score": 0.05259294323577849
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.028008702740317824,
+              "mean_ret": 0.009638428599887323,
+              "adverse_rate": 0.01904761904761905,
+              "adverse": 4,
+              "topped": 3,
+              "median_hold": 92.0,
+              "mean_score": -0.07719764465201233
+            }
+          },
+          "top_minus_bottom": 0.11589935342230559,
+          "top_minus_bottom_ci95": [
+            0.04110603353630932,
+            0.1896956157536018
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.07629727352327362,
+          "top_minus_all_ci95": [
+            0.033573499634400865,
+            0.12213742781400398
+          ],
+          "share_gt0": 0.998
+        },
+        "ear_model": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.13068561878743593,
+              "mean_ret": 0.06629179659757406,
+              "adverse_rate": 0.06310679611650485,
+              "adverse": 13,
+              "topped": 2,
+              "median_hold": 122.0,
+              "mean_score": 0.2634566223253336
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.019857117280386624,
+              "mean_ret": 0.007564390835339657,
+              "adverse_rate": 0.033816425120772944,
+              "adverse": 7,
+              "topped": 2,
+              "median_hold": 93.0,
+              "mean_score": 0.034562208408376226
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.019304476528409026,
+              "mean_ret": 0.005376794121396012,
+              "adverse_rate": 0.009523809523809525,
+              "adverse": 2,
+              "topped": 2,
+              "median_hold": 85.0,
+              "mean_score": -0.09049758744240903
+            }
+          },
+          "top_minus_bottom": 0.1113811422590269,
+          "top_minus_bottom_ci95": [
+            0.03708707303221512,
+            0.1851819107947016
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.06307483614808612,
+          "top_minus_all_ci95": [
+            0.028849864213240317,
+            0.1003851760495614
+          ],
+          "share_gt0": 0.998
+        },
+        "ear_stack": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.1335648151069039,
+              "mean_ret": 0.06372706133741425,
+              "adverse_rate": 0.06310679611650485,
+              "adverse": 13,
+              "topped": 2,
+              "median_hold": 106.5,
+              "mean_score": 0.26090291819835437
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.02105931885132603,
+              "mean_ret": 0.008070021291806532,
+              "adverse_rate": 0.033816425120772944,
+              "adverse": 7,
+              "topped": 1,
+              "median_hold": 92.0,
+              "mean_score": 0.04655379416341256
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.024175516314539545,
+              "mean_ret": 0.007394270117130661,
+              "adverse_rate": 0.009523809523809525,
+              "adverse": 2,
+              "topped": 3,
+              "median_hold": 89.5,
+              "mean_score": -0.07963615262289248
+            }
+          },
+          "top_minus_bottom": 0.10938929879236436,
+          "top_minus_bottom_ci95": [
+            0.03557258616565483,
+            0.17834701181133988
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.0659540324675541,
+          "top_minus_all_ci95": [
+            0.027871527065046593,
+            0.10469663907603702
+          ],
+          "share_gt0": 0.9985
+        },
+        "spread": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.11081862303511855,
+              "mean_ret": 0.0650880706274359,
+              "adverse_rate": 0.07281553398058252,
+              "adverse": 15,
+              "topped": 1,
+              "median_hold": 153.0,
+              "mean_score": 0.10508519876618763
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.030017275446662692,
+              "mean_ret": 0.009920738338675324,
+              "adverse_rate": 0.024154589371980676,
+              "adverse": 5,
+              "topped": 2,
+              "median_hold": 90.0,
+              "mean_score": 0.01800581392851609
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.016960425805170935,
+              "mean_ret": 0.0042349065816721,
+              "adverse_rate": 0.009523809523809525,
+              "adverse": 2,
+              "topped": 3,
+              "median_hold": 76.5,
+              "mean_score": -0.012533038837026255
+            }
+          },
+          "top_minus_bottom": 0.09385819722994762,
+          "top_minus_bottom_ci95": [
+            0.017614999550481177,
+            0.16785022333048175
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.04320784039576875,
+          "top_minus_all_ci95": [
+            0.014262761627233129,
+            0.07349736107553152
+          ],
+          "share_gt0": 0.9915
+        },
+        "spread_ann": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.11991359952725861,
+              "mean_ret": 0.06691654106349573,
+              "adverse_rate": 0.06310679611650485,
+              "adverse": 13,
+              "topped": 2,
+              "median_hold": 143.5,
+              "mean_score": 0.4502683985436504
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.01607840202724322,
+              "mean_ret": 0.005597382152373482,
+              "adverse_rate": 0.033816425120772944,
+              "adverse": 7,
+              "topped": 1,
+              "median_hold": 93.0,
+              "mean_score": 0.07484074669610481
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.0256758657698083,
+              "mean_ret": 0.006702858108987137,
+              "adverse_rate": 0.009523809523809525,
+              "adverse": 2,
+              "topped": 3,
+              "median_hold": 79.0,
+              "mean_score": -0.0800683440351253
+            }
+          },
+          "top_minus_bottom": 0.09423773375745031,
+          "top_minus_bottom_ci95": [
+            0.01793020034936163,
+            0.16504738441764039
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.052302816887908804,
+          "top_minus_all_ci95": [
+            0.02194879733662305,
+            0.0863545659990301
+          ],
+          "share_gt0": 0.994
+        },
+        "mkt": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.010462733850462464,
+              "mean_ret": 0.002420803042911232,
+              "adverse_rate": 0.014563106796116505,
+              "adverse": 3,
+              "topped": 3,
+              "median_hold": 71.0,
+              "mean_score": -0.014765247483114816
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.03833681806552699,
+              "mean_ret": 0.013230020438628162,
+              "adverse_rate": 0.033816425120772944,
+              "adverse": 7,
+              "topped": 2,
+              "median_hold": 92.0,
+              "mean_score": -0.0751856627314768
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.10683968282189325,
+              "mean_ret": 0.062446505285109456,
+              "adverse_rate": 0.05714285714285714,
+              "adverse": 12,
+              "topped": 1,
+              "median_hold": 153.0,
+              "mean_score": -0.39753116841213226
+            }
+          },
+          "top_minus_bottom": -0.09637694897143079,
+          "top_minus_bottom_ci95": [
+            -0.17537125427684025,
+            -0.0060960084860840705
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": -0.05714804878888734,
+          "top_minus_all_ci95": [
+            -0.115910205693748,
+            0.011015738515604261
+          ],
+          "share_gt0": 0.0185
+        },
+        "ear_no_break": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.11915105974976148,
+              "mean_ret": 0.0624215905652727,
+              "adverse_rate": 0.07281553398058252,
+              "adverse": 15,
+              "topped": 2,
+              "median_hold": 129.0,
+              "mean_score": 0.27005530925684146
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.033852603932769794,
+              "mean_ret": 0.012874787558839784,
+              "adverse_rate": 0.024154589371980676,
+              "adverse": 5,
+              "topped": 1,
+              "median_hold": 95.0,
+              "mean_score": 0.03956616410926384
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.01498585508436867,
+              "mean_ret": 0.003938748030393884,
+              "adverse_rate": 0.009523809523809525,
+              "adverse": 2,
+              "topped": 3,
+              "median_hold": 79.0,
+              "mean_score": -0.07938051508337135
+            }
+          },
+          "top_minus_bottom": 0.10416520466539281,
+          "top_minus_bottom_ci95": [
+            0.023924540296750417,
+            0.18127944998039539
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.051540277110411675,
+          "top_minus_all_ci95": [
+            0.01838556026179193,
+            0.08800020949075789
+          ],
+          "share_gt0": 0.994
+        },
+        "ear_no_duration": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.12006024279162256,
+              "mean_ret": 0.06245719373313361,
+              "adverse_rate": 0.05825242718446602,
+              "adverse": 12,
+              "topped": 2,
+              "median_hold": 123.0,
+              "mean_score": 0.2656058885541595
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.027543063982727805,
+              "mean_ret": 0.009253200887745084,
+              "adverse_rate": 0.028985507246376812,
+              "adverse": 6,
+              "topped": 1,
+              "median_hold": 88.0,
+              "mean_score": 0.053453608278827475
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.024095945792579676,
+              "mean_ret": 0.007473672736761763,
+              "adverse_rate": 0.01904761904761905,
+              "adverse": 4,
+              "topped": 3,
+              "median_hold": 84.5,
+              "mean_score": -0.052836862092440616
+            }
+          },
+          "top_minus_bottom": 0.09596429699904288,
+          "top_minus_bottom_ci95": [
+            0.021433577637529174,
+            0.1670509213289917
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.05244946015227275,
+          "top_minus_all_ci95": [
+            0.017514868353176803,
+            0.0863242886079457
+          ],
+          "share_gt0": 0.9925
+        },
+        "ear_no_loss": {
+          "terciles": {
+            "top": {
+              "n": 206,
+              "annual_return": 0.14390805616262342,
+              "mean_ret": 0.061134607393889054,
+              "adverse_rate": 0.05339805825242718,
+              "adverse": 11,
+              "topped": 2,
+              "median_hold": 84.5,
+              "mean_score": 0.2489082533462036
+            },
+            "middle": {
+              "n": 207,
+              "annual_return": 0.02125509770370829,
+              "mean_ret": 0.008401608006369507,
+              "adverse_rate": 0.033816425120772944,
+              "adverse": 7,
+              "topped": 1,
+              "median_hold": 95.0,
+              "mean_score": 0.053012913806651976
+            },
+            "bottom": {
+              "n": 210,
+              "annual_return": 0.027834663981595325,
+              "mean_ret": 0.009610494224043318,
+              "adverse_rate": 0.01904761904761905,
+              "adverse": 4,
+              "topped": 3,
+              "median_hold": 92.0,
+              "mean_score": -0.07625946190736918
+            }
+          },
+          "top_minus_bottom": 0.11607339218102809,
+          "top_minus_bottom_ci95": [
+            0.04187614818706752,
+            0.1904473391856955
+          ],
+          "all": 0.0676107826393498,
+          "top_minus_all": 0.07629727352327362,
+          "top_minus_all_ci95": [
+            0.03434431767453891,
+            0.1230005694254574
+          ],
+          "share_gt0": 0.999
+        }
+      },
+      "model_top_minus_benchmark_top": {
+        "spread": {
+          "point": 0.03308943312750487,
+          "ci95": [
+            0.010830200429388601,
+            0.060565246938013684
+          ],
+          "overlap": 0.6650485436893204,
+          "share_gt0": 0.9995
+        },
+        "spread_ann": {
+          "point": 0.023994456635364814,
+          "ci95": [
+            0.0013173207595293963,
+            0.04932115154139825
+          ],
+          "overlap": 0.7427184466019418,
+          "share_gt0": 0.979
+        }
+      },
+      "rank_correlation_with_model": {
+        "ear_no_break": 0.8615605554891657,
+        "ear_no_duration": 0.9237861924917093,
+        "ear_no_loss": 0.999925261703144,
+        "spread": 0.7670402975572063,
+        "spread_ann": 0.8262428347008499,
+        "mkt": -0.5429102769737671,
+        "ear_stack": 0.9330953287472671,
+        "ear_model": 0.8910985100379588
+      },
+      "calendar": {
+        "all": {
+          "annual_return": 0.06595242821976482,
+          "volatility": 0.08623597071702442,
+          "sharpe": 0.4358560640117675,
+          "max_drawdown": -0.205326306253778,
+          "days": 1974,
+          "deals": 623,
+          "mean_open": 30.707700101317123
+        },
+        "top_model": {
+          "annual_return": 0.09744917742694044,
+          "volatility": 0.10234667696480922,
+          "sharpe": 0.6749923107311581,
+          "max_drawdown": -0.23273933430254845,
+          "days": 1974,
+          "deals": 330,
+          "mean_open": 16.79078014184397
+        },
+        "top_spread": {
+          "annual_return": 0.08473342292540112,
+          "volatility": 0.0980930164438406,
+          "sharpe": 0.5746328079416709,
+          "max_drawdown": -0.23644334687415414,
+          "days": 1974,
+          "deals": 336,
+          "mean_open": 20.958966565349545
+        },
+        "model_minus_all": {
+          "return": 0.031496749207175614,
+          "return_ci95": [
+            -0.00025642722612027495,
+            0.0638649868083873
+          ],
+          "sharpe": 0.23913624671939054,
+          "sharpe_ci95": [
+            -0.06862099998298124,
+            0.5357197618746421
+          ]
+        },
+        "model_minus_spread": {
+          "return": 0.01271575450153932,
+          "return_ci95": [
+            -0.005722526442613283,
+            0.03209756766259905
+          ],
+          "sharpe": 0.10035950278948713,
+          "sharpe_ci95": [
+            -0.10274026827083185,
+            0.2612181126845977
+          ]
+        },
+        "start": "2019-01-09",
+        "end": "2026-11-12"
+      }
+    }
+  }
+}

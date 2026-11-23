@@ -111,8 +111,8 @@ def build(synthetic: bool) -> Path:
 
     # underwriting view (real data only): time to closing with an 80% interval, loss if it breaks, expected annualized return
     uw = {}
-    if not synthetic and (M.INTERIM / "duration.pkl").exists():
-        du = pickle.load(open(M.INTERIM / "duration.pkl", "rb"))["pred"].set_index("deal_id")
+    if not synthetic and (M.INTERIM / "duration_product.parquet").exists():
+        du = pd.read_parquet(M.INTERIM / "duration_product.parquet").set_index("deal_id")      # product forecast and conformal 80% interval
         lo = pd.read_parquet(M.INTERIM / "loss_oot.parquet").set_index("deal_id") if (M.INTERIM / "loss_oot.parquet").exists() else None
         er = pd.read_parquet(M.INTERIM / "expected_return.parquet").set_index("deal_id") if (M.INTERIM / "expected_return.parquet").exists() else None
         ear_all = er["test__ear"].dropna().to_numpy() if er is not None else np.array([])
@@ -123,8 +123,8 @@ def build(synthetic: bool) -> Path:
             return float(f(frame.at[did, col]))
         for did in D.deals["deal_id"].iloc[te]:
             e = num(er, did, "test__ear")
-            uw[did] = {"days": num(du, did, "split__full__final", np.exp), "days_lo": num(du, did, "split__full__final_q10", np.exp),
-                       "days_hi": num(du, did, "split__full__final_q90", np.exp), "loss": num(lo, did, "split__adverse"),
+            uw[did] = {"days": num(du, did, "split__mu", np.exp), "days_lo": num(du, did, "split__lo", np.exp), "days_hi": num(du, did, "split__hi", np.exp),
+                       "uses_guidance": bool(num(du, did, "split__use_guide") == 1), "loss": num(lo, did, "split__adverse"),
                        "ear": e, "exp_ret": num(er, did, "test__exp_ret"), "p_top": num(er, did, "test__p_top"),
                        "ear_pct": None if e is None or not len(ear_all) else float((ear_all < e).mean())}
     d = D.deals.iloc[te]
@@ -159,6 +159,23 @@ def build(synthetic: bool) -> Path:
             "terms": terms, "press": (D.press[i][:1800] if D.press is not None and D.has_text[i] else ""),
             "compact_row": A_te[j].astype(float).tolist(), "underwriting": uw.get(r["deal_id"]),
         })
+    if synthetic:
+        # Made-up underwriting values so that the fallback shows the same layout as the real product. They follow no
+        # data: time to closing is drawn around 45 days for tender offers and 120 for mergers, spread and loss from
+        # fixed distributions, and the expected annualized return is computed from them and the synthetic break score.
+        rng = np.random.default_rng(15071)
+        it = COMPACT.index("feat_tender_offer")
+        for r_ in rows:
+            days = float(np.exp(rng.normal(np.log(45 if r_["compact_row"][it] == 1 else 120), 0.25)))
+            spread = float(np.clip(rng.normal(0.03, 0.02), 0.003, 0.12))
+            loss = -float(np.clip(rng.normal(0.25, 0.08), 0.05, 0.60))
+            er_ = (1 - r_["score"]) * spread + r_["score"] * loss
+            r_["spread"], r_["p_mkt"] = spread, float(np.clip(rng.beta(2, 12), 0.01, 0.9))
+            r_["underwriting"] = {"days": days, "days_lo": days * 0.62, "days_hi": days * 1.55, "uses_guidance": False, "loss": loss,
+                                  "ear": er_ / (days / 365), "exp_ret": er_, "p_top": None, "ear_pct": None}
+        ears = np.array([r_["underwriting"]["ear"] for r_ in rows])
+        for r_ in rows:
+            r_["underwriting"]["ear_pct"] = float((ears < r_["underwriting"]["ear"]).mean())
     # similarity index over historical broken deals (training period)
     similar = None
     if D.press is not None:
@@ -172,7 +189,7 @@ def build(synthetic: bool) -> Path:
                                  "reason": str(D.deals["reason"].iloc[i])} for i in broke]}
     art = {"synthetic": synthetic, "source": source, "deals": rows, "compact": compact, "history": np.sort(hist).astype(np.float32),
            "history_compact": np.sort(hist_compact).astype(np.float32), "similar": similar, "base_rate": float(y[tr].mean()),
-           "compact_medians": np.nanmedian(A_tr, axis=0).tolist(), "price_source": getattr(D, "pf_source", "")}
+           "compact_medians": np.nanmedian(A_tr, axis=0).tolist(), "price_source": "synthetic" if synthetic else getattr(D, "pf_source", "")}
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / ("demo_synthetic.pkl" if synthetic else "demo.pkl")
     with open(path, "wb") as fh:

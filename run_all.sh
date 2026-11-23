@@ -53,7 +53,7 @@ $PY src/pooled_oot.py fit 2>&1 | tee logs/pooled_oot_fit.log && $PY src/pooled_o
 # time to closing (needs no prices); the stated expected closing is read from the press releases first
 $PY src/llm_closing.py prepare && $PY src/llm_closing.py run --run sonnet --model sonnet
 $PY src/llm_closing.py run --run strong --model fable --sample 60 --batch-size 5 && $PY src/llm_closing.py finalize
-$PY src/duration.py fit 2>&1 | tee logs/duration_fit.log && $PY src/duration.py report > logs/duration.log
+$PY src/duration.py fit 2>&1 | tee logs/duration_fit.log && $PY src/duration.py product && $PY src/duration.py report > logs/duration.log
 if [ "$WRDS" = 1 ]; then
   $PY src/daily_eval.py > logs/daily_eval.log         # model versus market, backtest with daily marks, day-1 ladder step
   $PY src/loss_model.py > logs/loss_model.log         # loss if the deal breaks

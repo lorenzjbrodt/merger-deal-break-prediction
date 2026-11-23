@@ -1,86 +1,64 @@
-# Underwriting merger deals at announcement: break risk, time to closing, loss if it breaks
+# Underwriting merger deals at announcement
 
-MIT 15.071 Project 1 (Predictive AI), solo project by Lorenz J. Brodt. Project page:
-<https://lorenzjbrodt.github.io/merger-deal-break-prediction/>
+MIT 15.071 Project 1 (Predictive AI), Lorenz J. Brodt. [Project page](https://lorenzjbrodt.github.io/merger-deal-break-prediction/)
+
+**Result.** Of the three numbers a merger-arbitrage manager underwrites, only time to closing is predicted well at
+announcement (off by 47 days on average, against 64 for the median of its deal type); break risk is judged better by the market's
+spread than by any model here, and the loss when a deal breaks is large (28% on average) and close to unpredictable.
+**Recommendation.** Use the time-to-closing model to turn each spread into an expected annualized return and rank deals
+by it (top third 12.3% a year, bottom third 2.2%, before costs), read break risk off the spread, and do not size
+positions on the break model.
 
 ## Problem
 
-A merger-arbitrage fund buys the target after a deal is announced. It earns a small spread if the deal closes and loses
-many times that if it breaks. The portfolio manager underwrites three numbers per deal: the **probability of an adverse
-break** (cancelled for a reason other than a superior competing bid), the **time to closing**, and the **loss if it
-breaks**. This project predicts all three from what is known at announcement, combines them into an expected annualized
-return, and tests whether ranking deals by it makes money out of sample.
+A merger-arbitrage fund buys the target after a deal is announced: a small gain if it closes, a large loss if it
+breaks. Per deal the manager needs the probability of an adverse break (cancelled for a reason other than a higher bid),
+the time to closing, and the loss if it breaks.
 
-## Data (none of the licensed data is in this repo; see [DATA.md](DATA.md))
+## Data (licensed data is not in the repo: [DATA.md](DATA.md))
 
-- **Capital IQ** deal screen: 4,744 signed US public deals 2001-2025; core sample 4,468 without reverse mergers; 346
-  breaks, of which 246 adverse ([taxonomy](results/outcome_taxonomy.md)).
-- **SEC EDGAR** announcement filings (press release for 88% of deals), read by an LLM into 29 validated contract terms and
-  the parties' stated expected closing date ([validation](results/llm_extraction_validation.md), [closing guidance](results/closing_guidance_validation.md)).
-- **CRSP daily prices via WRDS** for 93% of core targets ([linking](results/crsp_link.md), [checks](results/crsp_prices.md));
-  Compustat; Hoberg-Phillips product similarity; FRED. Fallback without WRDS: Capital IQ monthly closes ([results/monthly](results/monthly)).
+- **Capital IQ**: 4,744 signed US public deals, 2001-2025; 4,468 without reverse mergers; 246 adverse breaks.
+- **SEC EDGAR**: announcement filings, read by an LLM into validated contract terms and the stated expected closing.
+- **CRSP daily prices** (WRDS) for 93% of targets; Compustat; Hoberg-Phillips product similarity; FRED.
 
 ## Method
 
-Train on 2001-2018, test on 2019-2025, everything fitted in-fold. Second evaluation set: **pooled out-of-time
-2013-2025**, each year scored by models refitted on earlier years only (13 origins). Intervals: bootstrap over deals
-(test) and over announcement years (pooled). Deals are bought at the close one trading day after the announcement.
+Train on 2001-2018, test on 2019-2025. A second set pools 2013-2025, each year scored by models refitted on earlier
+years only. Deals are bought one trading day after announcement and held to the outcome. Brackets: bootstrap 95% intervals.
 
 ## Headline results
 
-| The three numbers | Test 2019-2025 | Pooled out-of-time 2013-2025 |
+| | Test 2019-2025 | Pooled 2013-2025 |
 |---|---|---|
-| **Break probability**: final model, ROC AUC (1,083 / 2,176 deals; 40 / 84 adverse breaks) | 0.633 [0.551, 0.717] | 0.609 [0.538, 0.686] |
-| The market's day-1 implied probability, priced all-cash deals (22 / 38 adverse breaks) | 0.643 [0.523, 0.755] | 0.721 [0.642, 0.800] |
-| **Time to closing**: final model, mean absolute error in days (median by structure: 64 / 61) | 52.7 [48.1, 57.4] | 48.3 [44.2, 52.4] |
-| The parties' own stated expected closing, same deals (model: 46.9 / 43.6) | 46.4 | 45.4 |
-| **Loss if it breaks**: mean return of adverse breaks from the day-1 close (38 / 81 deals) | -29% | -25% |
-| **Ranking by expected annualized return**: top third minus bottom third, points a year | +11.6 [+4.1, +19.0] | +9.3 [+5.5, +13.5] |
-| The same test for the raw spread (no model) | +9.4 [+1.8, +16.8] | +8.4 [+5.0, +12.7] |
-| Top third by the model minus top third by raw spread | +3.3 [+1.1, +6.1] | +1.9 [+0.4, +3.3] |
+| Time to closing: mean error, days (median of the deal type: 64 / 61) | 47.1 [43.0, 51.5] | 43.1 [39.6, 46.5] |
+| Deals inside the 80% interval for time to closing | 80% | 81% |
+| Loss if it breaks: mean return of adverse breaks | -29% | -25% |
+| Break probability, ROC AUC: model / market's day-1 spread | 0.633 / 0.643 | 0.609 / 0.721 |
+| Ranking by expected annualized return: top minus bottom third, points a year | +12.6 [+5.3, +20.3] | +10.0 [+6.5, +13.9] |
+| Top third by the model minus top third by raw spread | +4.1 [+1.6, +7.1] | +2.5 [+0.9, +4.1] |
 
-- **Break probability: weak, and the market does it better.** Nothing added to base deal terms helps measurably
-  (pooled: extended features +0.025 [-0.025, +0.076], text +0.022 [-0.014, +0.059], product overlap +0.006
-  [-0.010, +0.019]). Ten further day-1 signals in two pre-specified models did not beat the market-implied probability
-  (pooled -0.125 [-0.246, -0.010] and -0.061 [-0.143, +0.011]). [Ladder](results/benchmark_table.md),
-  [pooled](results/pooled_oot.md), [market](results/market_benchmark.md), [day-1 signals](results/day1_signals.md),
-  [overlap](results/overlap.md).
-- **Time to closing: predictable.** R2 on log days 0.54. LLM-extracted terms cut the error by 1.6 days [-2.6, -0.6];
-  text embeddings add nothing. The model matches management guidance, and a model that also reads the guidance beats
-  it by 6.6 days [-9.5, -3.9]. [Details](results/duration.md).
-- **Loss if it breaks: large and barely predictable.** Adverse breaks lost 28% on average over all years (184 deals), far more than the 11% a fall
-  back to the pre-announcement price implies. No forecast beats the average leave-one-year-out. [Details](results/loss_given_break.md).
-- **In dollars** (all-cash deals, before costs): the top third by expected annualized return earned 11.7% a year pooled
-  against 2.3% for the bottom third; holding everything earned 6.4%. Most of that is the spread itself. In a daily
-  calendar-time portfolio the top half by the model beat the top half by raw spread by 0.6 points a year
-  [-0.9, +2.0], Sharpe ratio 0.80 against 0.77. [Ranking test](results/expected_return.md), [backtest](results/backtest.md).
+- **For the manager**: a closing forecast 6 days better than the parties' own guidance; a ranking whose top third
+  earned 12.3% a year against 6.4% for all deals; a demo with the three numbers per deal.
+- **Break prediction, nothing helped** (pooled AUC change): extended features +0.025 [-0.025, +0.076]; text and LLM
+  terms +0.022 [-0.014, +0.059]; product overlap +0.006 [-0.010, +0.019]; day-1 market signals -0.061
+  [-0.143, +0.011] against the market; model added to the market -0.028 [-0.194, +0.107].
+- **Loss if it breaks**: no forecast beats the historical average.
 
-More: [segments](results/segments.md), [SHAP](results/shap.md), [calibration](results/calibration.md),
-[robustness](results/robustness.md), [case studies](results/case_studies.md), [label audit](results/label_audit.md),
-[LLM zero-shot (exploratory)](results/llm_zero_shot.md), [base run](results/base_run).
+Everything else: [results/](results/README.md), [DECISIONS.md](DECISIONS.md), [SLIDE_NOTES.md](SLIDE_NOTES.md).
 
 ## Reproduce
 
 ```bash
-python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt   # macOS: brew install libomp
-./run_all.sh synthetic                  # smoke test on 200 synthetic rows; results are meaningless
-./run_all.sh                            # real run: Capital IQ exports, a logged-in `claude` CLI, optionally WRDS (DATA.md)
-.venv/bin/streamlit run app/demo.py     # local demo with the three numbers per deal; falls back to the synthetic sample
+python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
+./run_all.sh synthetic                 # smoke test on synthetic rows
+./run_all.sh                           # real run: Capital IQ exports, `claude` CLI, WRDS (see DATA.md)
+.venv/bin/streamlit run app/demo.py    # demo; falls back to synthetic values
 ```
-
-`data/sample/synthetic_ciq_export.csv` is **synthetic**. Every number in `results/` and `figures/` comes from the real data.
 
 ## Limitations
 
-- **Few events.** 40 adverse breaks in the test period (22 priced all-cash), 84 pooled (38 priced). Pooled results mix
-  13 fitted models and resample only 13 years. "No measurable gain" is not "no gain".
-- **The ranking result is mostly a risk premium.** The top third holds 25 of the 38 pooled adverse breaks: wide spreads
-  pay because they are risky. The model's edge over the free spread ranking is 1 to 3 points in the tercile test and
-  not distinguishable from zero in the calendar-time portfolio.
-- **Backtest.** No transaction or financing costs, equal weights, unlimited capacity, every deal bought at the day-1
-  close. Deals without announcement text keep the vendor's final offer in the spread.
-- **Licensed data and vendor fields.** Results need Capital IQ and WRDS. The vendor fills fewer fields for cancelled
-  deals and stores final terms. Label audit against EDGAR: 3 of 76 statuses contradicted.
-- **The LLM zero-shot score (AUC 0.82) is not evidence:** the same LLM named 92% of the anonymised targets.
-
-Decisions: [DECISIONS.md](DECISIONS.md). Slides: [SLIDE_NOTES.md](SLIDE_NOTES.md). Code: MIT licence. Data: not included.
+- **Few events**: 40 adverse breaks in the test period, 84 pooled (22 and 38 with prices).
+- **Before costs**: no transaction or financing costs, equal weights, unlimited capacity.
+- **Mostly a risk premium**: the top third holds 22 of the 38 priced breaks; in a daily portfolio the model beats the
+  raw spread by 0.9 points a year [-0.9, +2.6].
+- **Licensed vendor data** with known flaws (final terms stored, sparse fields for cancelled deals).

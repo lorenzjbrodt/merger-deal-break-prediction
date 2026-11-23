@@ -378,3 +378,25 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     now carries the run tag, and the real one was regenerated (refit predictions identical to the stored ones).
 112. **Demo.** The underwriting row is shown for test-period deals from the real artefacts only. Market-implied
     probability, spread and expected annualized return are shown for all-cash deals only.
+
+## Final polish
+
+113. **Product time-to-closing model.** Where the announcement states an expected closing, the product uses model 6
+    (which also reads it), otherwise the final model. The switch is decided per origin by the CV already stored for
+    that origin (model 6 against model 4 on the deals with text, same folds); CV preferred model 6 in all 14 origins.
+    No model was refitted for the point forecast. The spread of the forecast (used for the mean of the log-normal) is
+    the residual standard deviation of model 6 on the calibration years.
+114. **Expected-return rerun.** The ranking test and the calendar-time portfolio were rerun once with that one change.
+    Old and new numbers are printed side by side in `results/expected_return.md`; the old run is kept as
+    `results/expected_return_v1.json`. The tercile results improved slightly, the test-period calendar-time result
+    got worse; both are reported and nothing was adjusted afterwards.
+115. **Conformal interval.** Conformalized quantile regression with a time-ordered split: the 10% and 90% quantile
+    models are refitted on the training years except the last three, the last three are the calibration set, and the
+    interval is [q10 - Q, q90 + Q] with Q the ceil((n + 1) x 0.8) / n quantile of max(q10 - y, y - q90). Done per
+    origin, separately for the final model (all deals) and for model 6 (deals with a stated closing).
+116. **Synthetic demo values.** The synthetic fallback now shows the underwriting row with made-up values drawn from
+    fixed distributions (time to closing around 45 days for tender offers and 120 for mergers, spread around 3%, loss
+    around -25%); the expected annualized return is computed from them and the synthetic break score. The page states
+    that the numbers are meaningless. The committed screenshots are taken from this fallback.
+117. **README** cut to about 500 words as requested; everything removed from it is reachable through
+    `results/README.md`.

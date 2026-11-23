@@ -12,6 +12,7 @@ Evaluation: the time split (train 2001-2018, test 2019-2025) and pooled rolling-
 
   python src/duration.py fit      data/interim/duration.pkl (predictions for every core deal, git-ignored); resumable:
                                   one checkpoint per origin in data/interim/duration_ckpt/ (delete the folder to refit)
+  python src/duration.py product  product forecast (model 6 where the closing is stated and CV prefers it) and the conformal 80% interval
   python src/duration.py report   results/duration.md, results/duration.json, figures/duration.png
 """
 from __future__ import annotations
@@ -213,6 +214,79 @@ def fit(suffix: str, reverse: bool = False) -> None:
     log("wrote duration.pkl")
 
 
+# ----------------------------------------------------------------------------- product model and calibrated interval
+ALPHA = 0.20          # 80% interval
+CALIB_YEARS = 3       # the last three training years are held out for the conformal calibration
+
+
+def conformal_q(scores):
+    n = len(scores)
+    return float(np.quantile(scores, min(1.0, np.ceil((n + 1) * (1 - ALPHA)) / n), method="higher"))
+
+
+def product(suffix: str) -> None:
+    """Time to closing as used in the product, per origin and on training-period data only.
+
+    Point forecast: model 6 (also reads the stated expected closing) for deals that state one, if the CV inside the
+    origin's training years prefers model 6 over model 4 on the deals with text; the final model otherwise.
+    80% interval: split conformal calibration of the quantile models (conformalized quantile regression). The quantile
+    models are fitted on the training years except the last three; the last three are the calibration set; the
+    interval is [q10 - Q, q90 + Q] with Q the conformal quantile of the calibration scores max(q10 - y, y - q90).
+    """
+    D = M.load_data(suffix)
+    n = len(D.year)
+    idx = np.arange(n)
+    closed = D.y["label"] == 0
+    y = np.log(np.clip(D.days_out.astype(float), 1, None))
+    Z = pickle.load(open(INTERIM / f"duration{suffix}.pkl", "rb"))
+    P, sel = Z["pred"], Z["selection"]
+    assert (P["deal_id"].to_numpy() == D.deals["deal_id"].to_numpy()).all()
+    G = D.deals[["deal_id"]].merge(pd.read_parquet(INTERIM / f"closing_guidance{suffix}.parquet"), on="deal_id", how="left")
+    guide = G[["guide_days", "guide_lo_days", "guide_hi_days"]].to_numpy(float)
+    has_g = np.isfinite(guide[:, 0]) & D.has_text
+    base = {"lgbm_base": Feat(base_only=True), "lgbm_ext": Feat(groups=TE.EXT), "lgbm_extm": Feat(groups=TE.EXTM), "lgbm_llm": Feat(groups=TE.EXTM, has_text_flag=True, llm=True)}
+    cols = {f"{t}__{k}": np.full(n, np.nan) for t in ("split", "oot") for k in ("mu", "sigma", "lo", "hi", "lo_final", "hi_final", "use_guide")}
+    info = {}
+    L0, n0 = D.L, D.L_names
+    for (tag, Y, subset), I in sel.items():
+        if subset != "full" or "final" not in I:
+            continue
+        cut = M.TRAIN_END if Y is None else Y - 1
+        te = idx[D.core & ((D.year >= M.TEST_START) if Y is None else (D.year == Y))]
+        tr = idx[D.core & closed & (D.year <= cut)]
+        proper, calib = tr[D.year[tr] <= cut - CALIB_YEARS], tr[D.year[tr] > cut - CALIB_YEARS]
+        ch = I["final"]["chosen"]
+        _, q = fit_reg(D, y, base[ch], proper, np.r_[calib, te], (I[ch]["num_leaves"], I[ch]["n_estimators"]), quantiles=(0.1, 0.9))
+        k = len(calib)
+        Q = conformal_q(np.maximum(q[0.1][:k] - y[calib], y[calib] - q[0.9][:k]))
+        cols[f"{tag}__lo_final"][te], cols[f"{tag}__hi_final"][te] = q[0.1][k:] - Q, q[0.9][k:] + Q
+        cols[f"{tag}__mu"][te] = P[f"{tag}__full__final"].to_numpy()[te]
+        cols[f"{tag}__sigma"][te] = I["final"]["oof_resid_sd"]
+        cols[f"{tag}__lo"][te], cols[f"{tag}__hi"][te] = cols[f"{tag}__lo_final"][te], cols[f"{tag}__hi_final"][te]
+        cols[f"{tag}__use_guide"][te] = 0.0
+        It = sel.get((tag, Y, "text"), {})
+        o = {"final": ch, "calibration_deals": int(k), "Q_final": Q, "cv_model4": It.get("lgbm_llm", {}).get("cv_mae_log"), "cv_model6": It.get("lgbm_guide", {}).get("cv_mae_log")}
+        o["use_model6"] = bool(o["cv_model6"] is not None and o["cv_model4"] is not None and o["cv_model6"] < o["cv_model4"])
+        if o["use_model6"]:
+            D.L, D.L_names = np.column_stack([L0, guide]), n0 + ["guide_days", "guide_lo_days", "guide_hi_days"]
+            f6 = Feat(groups=TE.EXTM, llm=True)
+            pr6, ca6, te6 = proper[D.has_text[proper]], calib[has_g[calib]], te[has_g[te]]
+            p6, q6 = fit_reg(D, y, f6, pr6, np.r_[ca6, te6], (It["lgbm_guide"]["num_leaves"], It["lgbm_guide"]["n_estimators"]), quantiles=(0.1, 0.9))
+            D.L, D.L_names = L0, n0
+            k6 = len(ca6)
+            Q6 = conformal_q(np.maximum(q6[0.1][:k6] - y[ca6], y[ca6] - q6[0.9][:k6]))
+            cols[f"{tag}__mu"][te6] = P[f"{tag}__text__lgbm_guide"].to_numpy()[te6]
+            cols[f"{tag}__sigma"][te6] = float(np.std(y[ca6] - p6[:k6]))
+            cols[f"{tag}__lo"][te6], cols[f"{tag}__hi"][te6] = q6[0.1][k6:] - Q6, q6[0.9][k6:] + Q6
+            cols[f"{tag}__use_guide"][te6] = 1.0
+            o.update(calibration_deals_model6=int(k6), Q_model6=Q6, sigma_model6=float(np.std(y[ca6] - p6[:k6])), test_deals_with_guidance=int(len(te6)))
+        info[f"{tag} {Y or 'split'}"] = o
+        print(f"{tag} {Y or 'split'}: model 6 {'used' if o['use_model6'] else 'not used'} (CV {o['cv_model6']} vs {o['cv_model4']}), Q {Q:.3f}", flush=True)
+    out = pd.DataFrame({"deal_id": D.deals["deal_id"].to_numpy(), **cols})
+    out.to_parquet(INTERIM / f"duration_product{suffix}.parquet", index=False)
+    (INTERIM / f"duration_product{suffix}.json").write_text(json.dumps(info, indent=2, default=float))
+
+
 # ----------------------------------------------------------------------------- report
 def met(days, pred_log):
     p = np.exp(pred_log)
@@ -349,6 +423,42 @@ def report(suffix: str) -> None:
                 L.append(f"| {g}: {v} | {int(m.sum())} | {np.median(X['days'].to_numpy()[m]):.0f} | {a[0]:.1f} | {b[0]:.1f} | {b[3]:.0%} |")
         out["segments"] = segs
         L.append("")
+    # ---- product model and calibrated interval
+    pp = INTERIM / f"duration_product{suffix}.parquet"
+    if pp.exists():
+        DP = pd.read_parquet(pp).set_index("deal_id").reindex(P["deal_id"]).reset_index()
+        pinfo = json.loads((INTERIM / f"duration_product{suffix}.json").read_text())
+        used = [k for k, v in pinfo.items() if v["use_model6"]]
+        L += ["## Product model: the forecast shown in the demo and used in the expected-return step", "",
+              "Where the announcement states an expected closing, the product uses model 6 (which also reads it); otherwise the final model. The switch is decided per origin "
+              "by the CV inside its training years (model 6 against model 4 on the deals with text). "
+              f"CV preferred model 6 in {len(used)} of {len(pinfo)} origins.", "",
+              "| Evaluation | Completed deals | With stated closing | MAE days, final model | MAE days, product model | Difference [95% CI] | R2 on log days: difference [95% CI] |", "|---|---:|---:|---:|---:|---|---|"]
+        out["product"] = {"origins": pinfo}
+        for tag, title, by_year in (("split", "Test period 2019-2025", False), ("oot", "Pooled rolling origin 2013-2025", True)):
+            ok = (done & DP[f"{tag}__mu"].notna() & P[f"{tag}__full__final"].notna()).to_numpy()
+            e = evaluate(P["days"].to_numpy()[ok], P["year"].to_numpy()[ok], {"final": P[f"{tag}__full__final"].to_numpy()[ok], "product": DP[f"{tag}__mu"].to_numpy()[ok]}, [("product", "final")], by_year)
+            e["n"] = int(ok.sum()); e["with_guidance"] = int((DP[f"{tag}__use_guide"].to_numpy()[ok] == 1).sum())
+            out["product"][tag] = e
+            r = e["pairs"]["product minus final"]
+            L.append(f"| {title} | {e['n']} | {e['with_guidance']} | {e['scores']['final']['mae']:.1f} | {e['scores']['product']['mae']:.1f} | {r['mae']:+.1f} [{r['ci95']['mae'][0]:+.1f}, {r['ci95']['mae'][1]:+.1f}] | "
+                     f"{r['r2_log']:+.3f} [{r['ci95']['r2_log'][0]:+.3f}, {r['ci95']['r2_log'][1]:+.3f}] |")
+        L += ["", "## Calibrated 80% interval (split conformal)", "",
+              "The quantile models are refitted on the training years except the last three; those three years are the calibration set. The interval is widened (or narrowed) on "
+              "both sides by the conformal quantile of the calibration errors. Nothing from the evaluated years is used.", "",
+              "| Evaluation | Interval | Coverage of completed deals | Closed faster | Closed slower | Median width, days |", "|---|---|---:|---:|---:|---:|"]
+        out["conformal"] = {}
+        for tag, title in (("split", "Test period 2019-2025"), ("oot", "Pooled rolling origin 2013-2025")):
+            ly = np.log(P["days"].to_numpy())
+            for lab, lo, hi in (("quantile models, uncalibrated", P[f"{tag}__full__final_q10"].to_numpy(), P[f"{tag}__full__final_q90"].to_numpy()),
+                                ("final model, conformal", DP[f"{tag}__lo_final"].to_numpy(), DP[f"{tag}__hi_final"].to_numpy()),
+                                ("product model, conformal (shown in the demo)", DP[f"{tag}__lo"].to_numpy(), DP[f"{tag}__hi"].to_numpy())):
+                ok = done.to_numpy() & np.isfinite(lo) & np.isfinite(hi)
+                cov = float(((ly[ok] >= lo[ok]) & (ly[ok] <= hi[ok])).mean())
+                out["conformal"][f"{tag} | {lab}"] = {"n": int(ok.sum()), "coverage": cov, "below": float((ly[ok] < lo[ok]).mean()), "above": float((ly[ok] > hi[ok]).mean()),
+                                                      "median_width_days": float(np.median(np.exp(hi[ok]) - np.exp(lo[ok])))}
+                L.append(f"| {title} | {lab} | {cov:.0%} | {(ly[ok] < lo[ok]).mean():.0%} | {(ly[ok] > hi[ok]).mean():.0%} | {np.median(np.exp(hi[ok]) - np.exp(lo[ok])):.0f} |")
+        L.append("")
     ch = [v["final"]["chosen"] for k, v in sel.items() if k[0] == "oot" and k[2] == "full" and "final" in v]
     out["final_chosen"] = {str(k[1] or "split"): v["final"]["chosen"] for k, v in sel.items() if k[2] == "full" and "final" in v}
     L += ["## Notes", "",
@@ -392,9 +502,9 @@ def report(suffix: str) -> None:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["fit", "report"])
+    ap.add_argument("cmd", choices=["fit", "product", "report"])
     ap.add_argument("--tag", default="real")
     ap.add_argument("--reverse", action="store_true", help="fit the rolling origins from the last year backwards (second worker; shares the checkpoints)")
     a = ap.parse_args()
     sfx = "" if a.tag == "real" else f"_{a.tag}"
-    fit(sfx, a.reverse) if a.cmd == "fit" else report(sfx)
+    fit(sfx, a.reverse) if a.cmd == "fit" else (product(sfx) if a.cmd == "product" else report(sfx))

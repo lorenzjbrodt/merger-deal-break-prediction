@@ -146,6 +146,28 @@ Deals closed a median of -14 days relative to guidance; 35% closed later than th
 | Regulated industry: utilities | 23 | 133 | 139.7 | 111.7 | 35% |
 | Regulated industry: telecom and media | 18 | 183 | 133.4 | 125.1 | 28% |
 
+## Product model: the forecast shown in the demo and used in the expected-return step
+
+Where the announcement states an expected closing, the product uses model 6 (which also reads it); otherwise the final model. The switch is decided per origin by the CV inside its training years (model 6 against model 4 on the deals with text). CV preferred model 6 in 14 of 14 origins.
+
+| Evaluation | Completed deals | With stated closing | MAE days, final model | MAE days, product model | Difference [95% CI] | R2 on log days: difference [95% CI] |
+|---|---:|---:|---:|---:|---|---|
+| Test period 2019-2025 | 1026 | 807 | 52.7 | 47.1 | -5.6 [-6.9, -4.2] | +0.074 [+0.055, +0.095] |
+| Pooled rolling origin 2013-2025 | 2057 | 1585 | 48.3 | 43.1 | -5.1 [-6.1, -4.1] | +0.062 [+0.050, +0.075] |
+
+## Calibrated 80% interval (split conformal)
+
+The quantile models are refitted on the training years except the last three; those three years are the calibration set. The interval is widened (or narrowed) on both sides by the conformal quantile of the calibration errors. Nothing from the evaluated years is used.
+
+| Evaluation | Interval | Coverage of completed deals | Closed faster | Closed slower | Median width, days |
+|---|---|---:|---:|---:|---:|
+| Test period 2019-2025 | quantile models, uncalibrated | 73% | 10% | 17% | 111 |
+| Test period 2019-2025 | final model, conformal | 80% | 6% | 14% | 133 |
+| Test period 2019-2025 | product model, conformal (shown in the demo) | 80% | 7% | 13% | 114 |
+| Pooled rolling origin 2013-2025 | quantile models, uncalibrated | 73% | 12% | 15% | 110 |
+| Pooled rolling origin 2013-2025 | final model, conformal | 81% | 7% | 12% | 131 |
+| Pooled rolling origin 2013-2025 | product model, conformal (shown in the demo) | 81% | 8% | 11% | 114 |
+
 ## Notes
 
 - Final model: the feature set with the lowest CV error inside the training years. Time split: 4; rolling origins: 4 x13.

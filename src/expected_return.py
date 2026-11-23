@@ -6,7 +6,8 @@ Per all-cash deal at t1 (first trading day after the announcement), from out-of-
                      (variants: calibrated announcement-date model; model + market stack)             [daily_eval.py]
   P(topped)          small logistic regression on the day-1 spread, p_mkt and deal size, fitted on earlier years
   P(close)           1 - P(adverse break) - P(topped)
-  time to closing    time-to-closing model, mean of the predicted log-normal                      [duration.py]
+  time to closing    product forecast: the model that also reads the stated expected closing where one is
+                     stated (chosen by CV in every origin), the final model otherwise; mean of the log-normal  [duration.py]
   loss if it breaks  loss model                                                                  [loss_model.py]
   bump if topped     mean extra return of topped deals over their day-1 spread, earlier years
   expected return            = P(close) x spread + P(topped) x (spread + bump) + P(adverse) x loss
@@ -84,7 +85,7 @@ def components(E, cut_rows, te, p_adv, dur_mu, dur_sd, loss_pred):
     out["loss"] = np.where(np.isfinite(loss_pred[te]), loss_pred[te], loss_bar)
     out["loss_bar"] = loss_bar
     out["p_adv_bar"] = float(np.mean(cls[a] == "adverse_break"))
-    t_close = np.exp(dur_mu[te] + 0.5 * dur_sd ** 2) - E["days_to_t1"].fillna(1).to_numpy()[te]
+    t_close = np.exp(dur_mu[te] + 0.5 * dur_sd[te] ** 2) - E["days_to_t1"].fillna(1).to_numpy()[te]
     out["t_close"] = np.clip(t_close, 10, None)
     out["t_close_bar"] = float(np.mean(hold[clo]))
     out["t_top"] = float(np.mean(hold[top])) if top.sum() >= 5 else out["t_close_bar"]
@@ -191,6 +192,7 @@ def main() -> None:
     ZD = pickle.load(open(INTERIM / "duration.pkl", "rb"))
     DU, dsel = ZD["pred"].set_index("deal_id").reindex(D.deals["deal_id"]).reset_index(), ZD["selection"]
     LO = pd.read_parquet(INTERIM / "loss_oot.parquet").set_index("deal_id").reindex(D.deals["deal_id"]).reset_index()
+    DP = pd.read_parquet(INTERIM / "duration_product.parquet").set_index("deal_id").reindex(D.deals["deal_id"]).reset_index()   # product forecast: model 6 where the closing is stated
     D1 = pd.read_parquet(INTERIM / "day1_signals.parquet").set_index("deal_id").reindex(D.deals["deal_id"]).reset_index()
     d1info = json.loads((res / "day1_signals.json").read_text())["used_in_M"]
     E = pd.DataFrame({"deal_id": D.deals["deal_id"].to_numpy(), "year": D.year, "cls": D.outcome3, "spread": PF["spread"].to_numpy(), "p_mkt": PF["p_mkt"].to_numpy(),
@@ -213,7 +215,7 @@ def main() -> None:
             I = dsel.get((tag, Y, "full"))
             if te.sum() == 0 or I is None or tr.sum() < 200:
                 continue
-            c = components(E, tr, te, D1[f"cash__{view}__selected"].to_numpy(), DU[f"{tag}__full__final"].to_numpy(), I["final"]["oof_resid_sd"], LO[f"{tag}__adverse"].to_numpy())
+            c = components(E, tr, te, D1[f"cash__{view}__selected"].to_numpy(), DP[f"{tag}__mu"].to_numpy(), DP[f"{tag}__sigma"].to_numpy(), LO[f"{tag}__adverse"].to_numpy())
             sp = E["spread"].to_numpy()[te]
             er, et, e1 = ear(c, sp)
             R = S2[view]
@@ -325,6 +327,37 @@ def main() -> None:
           "- A ranking adds value only if the top third beats the bottom third (or all deals) by more than the interval. Compare the model rows with the spread rows: the spread is free.",
           "- The attribution rows are not separate strategies; they show which of the three numbers moves the ranking and what is lost without it.",
           "- Returns are before all costs. Equal weighting and daily rebalancing are not achievable at scale in small deals.", ""]
+    v1p = res / "expected_return_v1.json"
+    if v1p.exists():                                              # side by side with the run before the product duration model
+        V1 = json.loads(v1p.read_text())["views"]
+        C = ["## Old versus new: effect of the product time-to-closing model", "",
+             "One pre-specified change, run once: where the announcement states an expected closing, the time to closing now comes from the model that also reads it "
+             "(`results/duration.md`); nothing else changed. \"Old\" is the run with the final time-to-closing model for every deal (`results/expected_return_v1.json`).", "",
+             "| | Pooled 2013-2025: old | new | Test 2019-2025: old | new |", "|---|---|---|---|---|"]
+
+        def g(view, which, f):
+            V = (V1 if which == "old" else out["views"]).get(view)
+            try:
+                return f(V)
+            except Exception:
+                return "n/a"
+        pc = lambda x, ci: f"{x * 100:+.1f} [{ci[0] * 100:+.1f}, {ci[1] * 100:+.1f}]"
+        rows_ = [("Top third by expected annualized return: annual return", lambda V: f"{V['rankings']['ear']['terciles']['top']['annual_return']:+.1%}"),
+                 ("Middle third", lambda V: f"{V['rankings']['ear']['terciles']['middle']['annual_return']:+.1%}"),
+                 ("Bottom third", lambda V: f"{V['rankings']['ear']['terciles']['bottom']['annual_return']:+.1%}"),
+                 ("Top minus bottom, points [95% CI]", lambda V: pc(V['rankings']['ear']['top_minus_bottom'], V['rankings']['ear']['top_minus_bottom_ci95'])),
+                 ("Adverse breaks in top / middle / bottom", lambda V: " / ".join(str(V['rankings']['ear']['terciles'][k]['adverse']) for k in ("top", "middle", "bottom"))),
+                 ("Model top third minus raw-spread top third", lambda V: pc(V['model_top_minus_benchmark_top']['spread']['point'], V['model_top_minus_benchmark_top']['spread']['ci95'])),
+                 ("Model top third minus annualized-spread top third", lambda V: pc(V['model_top_minus_benchmark_top']['spread_ann']['point'], V['model_top_minus_benchmark_top']['spread_ann']['ci95'])),
+                 ("Calendar-time, top half by the model: annual return / Sharpe", lambda V: f"{V['calendar']['top_model']['annual_return']:+.1%} / {V['calendar']['top_model']['sharpe']:.2f}"),
+                 ("Calendar-time, top half minus all deals, points", lambda V: f"{V['calendar']['model_minus_all']['return'] * 100:+.2f} [{V['calendar']['model_minus_all']['return_ci95'][0] * 100:+.2f}, {V['calendar']['model_minus_all']['return_ci95'][1] * 100:+.2f}]"),
+                 ("Calendar-time, top half minus top half by raw spread, points", lambda V: f"{V['calendar']['model_minus_spread']['return'] * 100:+.2f} [{V['calendar']['model_minus_spread']['return_ci95'][0] * 100:+.2f}, {V['calendar']['model_minus_spread']['return_ci95'][1] * 100:+.2f}]"),
+                 ("Rank correlation with the ranking that uses an average time to closing", lambda V: f"{V['rank_correlation_with_model']['ear_no_duration']:.2f}")]
+        for lab, f in rows_:
+            C.append(f"| {lab} | {g('pooled', 'old', f)} | {g('pooled', 'new', f)} | {g('test', 'old', f)} | {g('test', 'new', f)} |")
+        C += ["", "The spread-only and market-only benchmark rows do not depend on the time-to-closing model, apart from bootstrap noise in their intervals.", ""]
+        k = L.index("## Reading")
+        L[k:k] = C
     (res / "expected_return.md").write_text("\n".join(L) + "\n")
     (res / "expected_return.json").write_text(json.dumps(out, indent=2, default=float))
     sv = pd.DataFrame({"deal_id": E["deal_id"]})

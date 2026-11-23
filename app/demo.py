@@ -90,11 +90,11 @@ def headline(p: float, pct: float, base: float, p_mkt):
 def underwriting(u, spread):
     """Second row: the three numbers an arbitrageur underwrites and the expected annualized return they imply."""
     if not u:
-        st.caption("Underwriting view (time to closing, loss if it breaks, expected annualized return): not available for this deal or in the synthetic fallback.")
+        st.caption("Underwriting view (time to closing, loss if it breaks, expected annualized return): not available for this deal.")
         return
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Expected time to closing", "n/a" if u["days"] is None else f"{u['days']:.0f} days",
-              "" if u["days_lo"] is None else f"80% interval {u['days_lo']:.0f} to {u['days_hi']:.0f} days", delta_color="off")
+              "" if u["days_lo"] is None else f"80% interval {u['days_lo']:.0f} to {u['days_hi']:.0f} days" + (" (reads the stated closing)" if u.get("uses_guidance") else ""), delta_color="off")
     c2.metric("Expected loss if it breaks", "n/a" if u["loss"] is None else f"{u['loss']:.0%}", "target return from the day-1 close", delta_color="off")
     c3.metric("Expected annualized return", "n/a" if u["ear"] is None else f"{u['ear']:.1%}",
               "all-cash deals with a CRSP price only" if u["ear"] is None else ("day-1 spread n/a" if spread is None else f"day-1 spread {spread:.1%}"), delta_color="off")
@@ -120,7 +120,7 @@ if mode == "Pick a test-period deal":
     st.subheader(f"{d['target']}  <-  {d['buyer'][:90]}")
     st.write(f"Announced {d['announced']} | deal value ${d['deal_value']:,.0f}m | consideration: {d['consideration']}"
              + ("" if d["premium_1d"] is None else f" | premium {d['premium_1d']:.0f}%")
-             + ("" if d["spread"] is None else f" | {'day-1 spread' if art.get('price_source') == 'CRSP daily' else 'spread at first monthly mark'} {d['spread']:.1%}"))
+             + ("" if d["spread"] is None else f" | {'spread at first monthly mark' if art.get('price_source') == 'Capital IQ monthly' else 'day-1 spread'} {d['spread']:.1%}"))
     headline(d["score"], d["percentile"], art["base_rate"], d["p_mkt"])
     underwriting(d.get("underwriting"), d["spread"])
     if show:

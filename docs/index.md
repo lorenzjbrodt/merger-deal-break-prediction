@@ -3,6 +3,13 @@
 MIT 15.071, Project 1 (Predictive AI). Solo project by Lorenz J. Brodt.
 Code and full results: <https://github.com/lorenzjbrodt/merger-deal-break-prediction>
 
+**Result.** Of the three numbers a merger-arbitrage manager underwrites, only time to closing is predicted well at
+announcement (off by 47 days on average, against 64 for the median of its deal type); break risk is judged better by the market's
+spread than by any model here, and the loss when a deal breaks is large (28% on average) and close to unpredictable.
+**Recommendation.** Use the time-to-closing model to turn each spread into an expected annualized return and rank deals
+by it (top third 12.3% a year, bottom third 2.2%, before costs), read break risk off the spread, and do not size
+positions on the break model.
+
 ## Problem
 
 A merger-arbitrage fund buys the target's shares after a deal is announced. If the deal closes, it earns a spread of a few
@@ -47,11 +54,12 @@ deal structure and is blind to what blocks clean cash deals.
 
 ### 2. Time to closing: predictable
 
-The median completed deal takes 107 days. The final model's mean absolute error is 52.7 days [48.1, 57.4] in the test
-period against 63.5 for the median by structure (tender offer or merger), with an R2 of 0.54 on log days. LLM-extracted
-contract terms cut the error by 1.6 days [-2.6, -0.6]; text embeddings add nothing. The model is as accurate as the
-closing date the parties state themselves (46.9 against 46.4 days), and a model that also reads that guidance beats it by
-6.6 days [-9.5, -3.9].
+The median completed deal takes 107 days. Without the parties' guidance the model's mean absolute error is 52.7 days
+[48.1, 57.4] in the test period against 63.5 for the median by structure (tender offer or merger); that is as accurate
+as the closing date the parties state themselves (46.9 against 46.4 days on the same deals). The product forecast also
+reads that guidance where it is stated and reaches 47.1 days [43.0, 51.5] over all deals (43.1 pooled), 6.6 days better
+than the guidance alone [-9.5, -3.9]. LLM-extracted contract terms cut the error by 1.6 days [-2.6, -0.6]; text
+embeddings add nothing. The 80% interval, calibrated on training years only, contains 80% of test-period deals.
 
 ![Time to closing](figures/duration.png)
 
@@ -66,18 +74,18 @@ historical average when every year is predicted from the others.
 ### 4. In dollars: ranking by expected annualized return
 
 Combining the three numbers per deal and sorting each year's all-cash deals into thirds (pooled 2013-2025, 1,205
-deals): the top third earned 11.7% a year, the middle 3.4%, the bottom 2.3%; top minus bottom +9.3 points
-[+5.5, +13.5]. The raw spread alone gives +8.4 [+5.0, +12.7]. The model's top third beats the spread's top third by 1.9
-points [+0.4, +3.3]. In a daily calendar-time portfolio the top half by the model returned 9.3% a year with a Sharpe
-ratio of 0.80, the top half by raw spread 8.7% and 0.77, all deals 7.2% and 0.72; model minus spread +0.6 points
-[-0.9, +2.0].
+deals): the top third earned 12.3% a year, the middle 3.1%, the bottom 2.2%; top minus bottom +10.0 points
+[+6.5, +13.9] (test period +12.6 [+5.3, +20.3]). The raw spread alone gives +8.4 [+5.0, +12.7]. The model's top third
+beats the spread's top third by 2.5 points [+0.9, +4.1]. In a daily calendar-time portfolio the top half by the model
+returned 9.6% a year with a Sharpe ratio of 0.80, the top half by raw spread 8.7% and 0.77, all deals 7.2% and 0.72;
+model minus spread +0.9 points [-0.9, +2.6].
 
 ![Ranking test and calendar-time portfolio](figures/expected_return.png)
 
 ### 5. What to take from it
 
 Annualize spreads with the duration model, read break risk off the spread, and do not size positions on the break
-model. Most of the ranking profit is a risk premium: the top third holds 25 of the 38 adverse breaks.
+model. Most of the ranking profit is a risk premium: the top third holds 22 of the 38 adverse breaks.
 
 ## Limitations
 
