@@ -240,3 +240,14 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     deal's Capital IQ-derived terms and scores, so they are saved under `artifacts/screenshots/` (git-ignored).
 72. **Stylized impact grid** is kept as a secondary view; a topped deal is treated like a completed deal there.
 73. `caffeinate -dims` kept the machine awake during the run and was stopped at the end.
+74. **Leakage probe for the zero-shot score.** Because the exploratory LLM score ranked test deals far better than any
+    model (AUC 0.82), the same anonymised texts were given to the same LLM with the question "which companies are these?".
+    It named the target in 92% of deals. The zero-shot score is therefore reported as not interpretable: it cannot be
+    separated from the LLM's memory of how the deals ended. It is used nowhere else.
+75. **Backtest figure.** The figure shows the change in annual return against hold-all with 95% intervals for both the
+    full panel and the plausible-spread panel, not the level of each strategy, so that the wide-spread deals of March 2020
+    do not read as model skill.
+76. **Demo terms.** The demo shows only extracted fields that passed validation.
+77. **Final model.** CV on the training years selected the extended tabular model (3x) over the variants with market
+    context or text; that choice is reported as made, although the full-sample text variant (5f) scored slightly higher
+    on the test set.

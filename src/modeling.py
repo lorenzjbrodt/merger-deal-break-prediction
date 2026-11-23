@@ -102,7 +102,7 @@ def load_data(suffix: str = "") -> Data:
         D.has_text = text["has_text"].fillna(False).to_numpy(dtype=bool)
         kp = INTERIM / f"keywords{suffix}.parquet"      # keyword flags are label-free; cached because the regex pass is slow
         if kp.exists() and kp.stat().st_mtime >= tp.stat().st_mtime and len(pd.read_parquet(kp)) == n:
-            D.K = pd.read_parquet(kp).to_numpy(dtype=float)
+            D.K = np.array(pd.read_parquet(kp).to_numpy(dtype=float), copy=True)
         else:
             tt = pd.DataFrame({"press_release": np.where(D.has_text, D.press, ""), "agreement": np.where(D.has_text, D.agr, "")})
             Kdf = F.keyword_features(tt)
@@ -122,7 +122,7 @@ def load_data(suffix: str = "") -> Data:
     lp = INTERIM / f"llm_terms{suffix}.parquet"
     if lp.exists():
         Lt = deals[["deal_id"]].merge(pd.read_parquet(lp), on="deal_id", how="left").drop(columns="deal_id")
-        D.L, D.L_names = Lt.to_numpy(dtype=float), list(Lt.columns)
+        D.L, D.L_names = np.array(Lt.to_numpy(dtype=float), copy=True), list(Lt.columns)
         D.L[~D.has_text] = np.nan
     for t in TARGETS:
         fp = INTERIM / f"ft_scores_{t}{suffix}.parquet"

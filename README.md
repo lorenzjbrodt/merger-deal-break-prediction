@@ -1,78 +1,85 @@
 # Predicting M&A deal breaks at announcement
 
-MIT 15.071 Project 1 (Predictive AI), solo project by Lorenz J. Brodt. **Base run.** An extended run (more
-features, outcome taxonomy, market data, LLM-extracted terms, price backtest) follows in later commits.
+MIT 15.071 Project 1 (Predictive AI), solo project by Lorenz J. Brodt. Project page:
+<https://lorenzjbrodt.github.io/merger-deal-break-prediction/>
 
 ## Problem
 
-A merger-arbitrage fund buys the target after a deal is announced and earns the spread if the deal closes. It loses
-several times the spread if the deal breaks. The portfolio manager needs, on the announcement day, a break probability
-to decide whether to take a position and how large. Label: 1 = deal cancelled after a definitive agreement, 0 = closed.
+A merger-arbitrage fund buys the target after a deal is announced. It earns a small spread if the deal closes and loses
+many times that if it breaks. On the announcement day the portfolio manager wants a break probability to decide whether
+to take the position and how large. Primary target: **adverse break** = a signed deal cancelled for a reason other than a
+superior competing bid (a higher bid is good news for an arbitrageur). Secondary target: any break.
 
-## Data
+## Data (none of the licensed data is in this repo; see [DATA.md](DATA.md))
 
-- **Capital IQ transaction screen** (licensed, not in this repo; rebuild instructions in [DATA.md](DATA.md)): US public
-  targets, deal value above $100m, majority stake, definitive agreement signed, announced 2001-2025, SPACs removed.
-  **4,744 deals, 346 breaks (7.3%).**
-- **SEC EDGAR** (public): the target's 8-K, 425, DEFA14A, SC TO-C, SC 14D9, SC TO-T and PREM14A filings from one day
-  before to five business days after the announcement. Two text fields per deal: the press release and the merger
-  agreement. 88% of deals have a press release, 78% an agreement ([coverage by year](results/text_coverage.md)).
+- **Capital IQ** deal screen: US public targets, value above $100m, majority stake, definitive agreement, announced
+  2001-2025. 4,744 deals as specified; the **core sample of 4,468** drops 276 reverse mergers (mostly de-SPACs, almost all
+  after 2019). 346 breaks: 100 superior competing bids, **246 adverse breaks** (LLM reading of deal notes, rule checks,
+  50 cases re-read: [taxonomy](results/outcome_taxonomy.md)).
+- **SEC EDGAR**: the target's filings in the week after announcement; press release for 88% of deals, merger agreement for 78%.
+- **Capital IQ monthly closes** of the target (spread, market-implied break probability, backtest), **FRED** market series.
+- **LLM-extracted terms**: 29 validated fields read from the filings by Claude Haiku ([validation](results/llm_extraction_validation.md)).
 
 ## Method
 
-Train on announcements 2001-2018, test on 2019-2025. Model selection by expanding-window CV inside the training years.
-Every encoder, scaler, TF-IDF vocabulary, SVD and PCA is fitted in-fold. Features are restricted to what is known on the
-announcement date; status, outcome dates and spreads are never used, and two fields that Capital IQ can update later
-(Deal Responses, Deal Attitude) appear only in a labelled ablation. Text enters as keyword flags, TF-IDF components and
-frozen sentence embeddings (`bge-small-en-v1.5`). Confidence intervals: 2,000 bootstrap resamples of test deals.
+Train on 2001-2018, test on 2019-2025; hyper-parameters by expanding-window CV inside the training years; every transform
+fitted in-fold; only information known at announcement enters a model. Ladder: base rate, one rule, logistic regression,
+LightGBM on deal terms, then extended buyer/target features, market context, TF-IDF, frozen embeddings, LLM-extracted terms,
+a fine-tuned encoder, and the market's own spread. Intervals: 2,000 bootstrap resamples of test deals.
 
-## Headline results (test 2019-2025)
+## Headline results (adverse breaks, core sample, test 2019-2025: 1,083 deals, 40 adverse breaks)
 
-| Model | ROC AUC, full sample (1,358 deals, 109 breaks) | ROC AUC, text subset (1,075 deals, 99 breaks) | Breaks in riskiest 20%, text subset |
-|---|---|---|---|
-| 0. Base rate | 0.500 | 0.500 | 0.20 |
-| 1. One rule (financial condition attached) | 0.554 [0.505, 0.600] | 0.592 [0.542, 0.638] | 0.26 |
-| 2. Logistic regression, tabular | 0.559 [0.500, 0.618] | 0.669 [0.613, 0.723] | 0.37 |
-| 3. LightGBM, tabular | 0.622 [0.574, 0.670] | 0.698 [0.642, 0.754] | 0.46 |
-| 4. + keywords + TF-IDF text | | 0.712 [0.659, 0.760] | 0.38 |
-| 5. + keywords + frozen embeddings | 0.575 [0.522, 0.625] (with has_text flag) | 0.661 [0.605, 0.714] | 0.32 |
-| 6. Text only (TF-IDF logistic) | | 0.672 [0.626, 0.717] | 0.28 |
+| Model | ROC AUC [95% CI] | Adverse breaks in riskiest 20% |
+|---|---|---|
+| Base rate | 0.500 | 0.20 |
+| One rule (any stock in the consideration) | 0.528 [0.449, 0.606] | 0.23 |
+| Logistic regression, base deal terms | 0.606 [0.523, 0.694] | 0.28 |
+| LightGBM, base deal terms | 0.628 [0.538, 0.713] | 0.40 |
+| **LightGBM + extended buyer, target and structure features (final model)** | **0.633 [0.551, 0.717]** | **0.35 [0.20, 0.50]** |
+| + market context | 0.626 [0.545, 0.709] | 0.33 |
+| + text (keywords, embeddings, LLM-extracted terms) | 0.646 [0.559, 0.730] | 0.33 |
+| Market-implied probability (552 priced cash deals, 16 breaks) | 0.619 [0.458, 0.771] | 0.25 |
 
-- **Tabular data carries a modest signal.** LightGBM beats the logistic benchmark on the full sample by +0.062 AUC
-  [+0.011, +0.119]. An AUC of 0.62 is far from a trading signal on its own.
-- **Text adds nothing reliable.** Embeddings minus tabular: -0.037 AUC [-0.086, +0.010], and they capture fewer breaks in
-  the riskiest 20% (-0.14 [-0.24, -0.05]). TF-IDF: +0.014 AUC [-0.026, +0.060] with worse PR AUC. Announcement press
-  releases are written by the deal parties and read alike whether or not the deal later breaks; the terms that matter are
-  already in the tabular fields. Text alone still reaches 0.67 AUC, so it is redundant, not empty.
-- **Dollar view** (stylized simulation, no price data, all assumptions in [results/impact.md](results/impact.md)): with a 3%
-  spread and a 20% loss on a break, holding every test-period deal earns $1.15m per $100m per year. Skipping the riskiest
-  20% by the tabular model adds $0.24m on the full sample, and $0.70m [0.45, 0.96] on the text subset. The break-even
-  check in that file shows the gain disappears if flagged deals trade about 1.3 points wider than the rest.
+- **There is a signal, and it is weak.** Deal terms rank adverse breaks better than chance (AUC 0.63, lower bound 0.55).
+  The same holds across 12 rolling origins (mean AUC 0.61 to 0.65, [table](results/rolling_origin.md)).
+- **Nothing added to the base deal terms is distinguishable from zero.** Extended features +0.006 AUC [-0.059, +0.066];
+  all text groups +0.023 [-0.039, +0.080] on deals with filings; LLM-extracted terms +0.000 [-0.041, +0.042]; the
+  fine-tuned encoder is at chance (0.517). [Ablation by group](results/ablation.md).
+- **The model does not demonstrably beat the market.** Adding the model to the market-implied probability changes AUC by
+  +0.027 [-0.096, +0.153] ([market benchmark](results/market_benchmark.md)).
+- **In dollars** ([backtest](results/backtest.md), all-cash deals, monthly marks, before costs): holding all 580 priced test
+  deals returned 8.7% a year on deployed capital. Skipping the model's riskiest 10% changes that by +0.9 points
+  [-0.3, +2.0], the riskiest 20% by +0.5 [-1.5, +2.5]. Only 16 priced adverse breaks; they lost 45% on average.
+- **What the base run got wrong.** Its AUC of 0.62 to 0.70 for "any break" was helped by reverse mergers (52 of 109 test
+  breaks) and by counting topped deals as breaks. On that same definition the extended features do help
+  (0.691 [0.641, 0.742] versus 0.622), mostly by separating deal types an arbitrageur would not trade.
 
-Full tables: [benchmark](results/benchmark_table.md), [segments](results/segments.md), [impact](results/impact.md),
-[metrics.json](results/metrics.json). Figures are in [figures/](figures).
+More: [benchmark tables](results/benchmark_table.md), [segments](results/segments.md), [SHAP reading](results/shap.md),
+[calibration](results/calibration.md), [robustness](results/robustness.md), [three-class view](results/three_class.md),
+[six case studies](results/case_studies.md), [label audit](results/label_audit.md), [price coverage](results/price_coverage.md),
+[stylized impact grid](results/impact.md), [exploratory LLM zero-shot score](results/llm_zero_shot.md), [base run](results/base_run).
 
 ## Reproduce
 
 ```bash
 python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt   # macOS: brew install libomp
-./run_all.sh synthetic     # smoke test on 200 synthetic rows, no Capital IQ needed (results are meaningless)
-./run_all.sh               # real run: needs data/raw/ciq_transactions_v2.xls (see DATA.md); EDGAR download takes ~100 min
+./run_all.sh synthetic                  # smoke test on 200 synthetic rows; results are meaningless
+./run_all.sh                            # real run; needs the Capital IQ exports (DATA.md) and a logged-in `claude` CLI
+.venv/bin/streamlit run app/demo.py     # local demo; falls back to the synthetic sample
 ```
 
-`data/sample/synthetic_ciq_export.csv` is **synthetic**. Every number in `results/` and `figures/` comes from the real export.
+`data/sample/synthetic_ciq_export.csv` is **synthetic**. Every number in `results/` and `figures/` comes from the real exports.
 
 ## Limitations
 
-- **Licensed data.** The deal table cannot be shared; results can be rebuilt only with Capital IQ access.
-- **No price data in the base run.** The dollar impact is a stylized simulation with a constant spread. The market
-  already charges wider spreads for risky deals, so the benefit of skipping them is overstated.
-- **Label noise and field timing.** Capital IQ fills fewer fields for cancelled deals (missingness predicts the label)
-  and may store revised terms. "Cancelled" also covers deals lost to a higher bid, which is good news for an arbitrageur.
-- **Sample composition shifts.** 275 test-period deals (52 of the 109 test breaks) are reverse mergers, mostly
-  de-SPACs, a deal type almost absent before 2019 and not what a merger-arbitrage fund trades. The SPAC filter in the
-  screen misses them. The extended run reports results with and without them.
-- **Few breaks.** 109 test breaks: intervals are wide, segment results are noisy, and small differences between models
-  are not distinguishable from zero.
+- **Few events.** 40 adverse breaks in the test period, 16 with usable cash-deal prices. Every interval is wide; "no
+  measurable gain" is not "no gain".
+- **Licensed data and vendor fields.** Results need Capital IQ access. The vendor fills fewer fields for cancelled deals,
+  may store revised terms, and classifies buyers as of today. Label audit against EDGAR: 3 of 76 checkable statuses
+  contradicted. Break reasons come from vendor notes; 15% of breaks have no stated reason.
+- **Prices are monthly.** Entry is up to a month after announcement, exits are on the next monthly mark, no costs,
+  dividends or financing. A few deals with very wide spreads (March 2020) dominate average returns.
+- **The model is blind to antitrust overlap,** the cause of the largest losses (see the case studies).
+- **The LLM zero-shot score (AUC 0.82) is not evidence about the text:** the same LLM named 92% of the anonymised targets.
 
-Decisions and their reasons: [DECISIONS.md](DECISIONS.md). Slide outline: [SLIDE_NOTES.md](SLIDE_NOTES.md). Code: MIT licence; data: not included.
+Decisions: [DECISIONS.md](DECISIONS.md). Slides: [SLIDE_NOTES.md](SLIDE_NOTES.md). Code: MIT licence. Data: not included.

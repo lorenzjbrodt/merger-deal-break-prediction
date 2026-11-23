@@ -111,6 +111,8 @@ def build(synthetic: bool) -> Path:
     d = D.deals.iloc[te]
     rows = []
     llm_dir = M.INTERIM / "llm_extract/out/haiku"
+    kf = M.INTERIM / "llm_extract/kept_fields.json"
+    kept = (set(json.loads(kf.read_text())) | {"regulatory_approvals"}) if kf.exists() else None   # hide fields that failed validation
     for j, i in enumerate(te):
         r = D.deals.iloc[i]
         if drivers is not None and r["deal_id"] in drivers["pos"]:
@@ -121,7 +123,9 @@ def build(synthetic: bool) -> Path:
         terms = {}
         lp = llm_dir / f"{r['deal_id']}.json"
         if lp.exists():
-            terms = {k: v_ for k, v_ in json.loads(lp.read_text()).items() if k != "doc_id" and v_ not in (None, [], "")}
+            terms = {k: v_ for k, v_ in json.loads(lp.read_text()).items() if k != "doc_id" and v_ not in (None, [], "") and (kept is None or k in kept)}
+            if kept is not None and isinstance(terms.get("regulatory_approvals"), list):
+                terms["regulatory_approvals"] = [a for a in terms["regulatory_approvals"] if f"reg_{a}" in kept]
         elif D.K is not None and D.has_text[i]:
             terms = {k.replace("kw_", "mentions "): bool(x) for k, x in zip(KW, D.K[i][:len(KW)]) if x == 1}
         pf = D.PF.iloc[i] if D.PF is not None else None

@@ -225,16 +225,24 @@ def main() -> None:
         matplotlib.use("Agg")
         import matplotlib.pyplot as plt
         plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False, "figure.dpi": 150, "savefig.bbox": "tight", "axes.grid": True, "grid.alpha": 0.25})
-        r = out["backtest"]["All-cash deals (main)"]["strategies"]
-        ks = list(r)
-        f_, ax = plt.subplots(figsize=(8.6, 3.8))
-        vals = [r[k]["annual_return"] * 100 for k in ks]
-        ax.barh(range(len(ks))[::-1], vals, color=["#9e9e9e"] + ["#08519c"] * (len(ks) - 2) + ["#bdbdbd"])
-        for i, k in enumerate(ks):
-            ax.text(vals[i] + 0.1, len(ks) - 1 - i, f"{vals[i]:.1f}%  ({r[k]['held']} deals, {r[k]['adverse_held']} adverse breaks)", va="center", fontsize=8)
-        ax.set_yticks(range(len(ks))[::-1]); ax.set_yticklabels([k.replace("Reference: ", "") for k in ks], fontsize=8)
-        ax.set_xlabel("Annual return on capital deployed (%), before costs"); ax.set_xlim(0, max(vals) * 1.6); ax.grid(axis="y", alpha=0)
-        ax.set_title("Backtest on monthly closes, all-cash deals, test 2019-2025", loc="left", fontsize=10)
+        panels = [("All priced all-cash deals", out["backtest"]["All-cash deals (main)"])]
+        if "All-cash, plausible spread" in out["backtest"]:
+            panels.append(("Entry spread between -5% and +25% only", out["backtest"]["All-cash, plausible spread"]))
+        f_, axes = plt.subplots(1, len(panels), figsize=(6.2 * len(panels), 3.8), sharey=True)
+        axes = np.atleast_1d(axes)
+        for ax, (title, pan) in zip(axes, panels):
+            r = pan["strategies"]; ks = [k for k in r if k != "Hold all deals"]
+            ypos = np.arange(len(ks))[::-1]
+            d = [r[k]["delta_vs_all"] * 100 for k in ks]
+            lo = [r[k]["delta_vs_all"] * 100 - r[k]["delta_ci95"][0] * 100 for k in ks]; hi = [r[k]["delta_ci95"][1] * 100 - r[k]["delta_vs_all"] * 100 for k in ks]
+            ax.errorbar(d, ypos, xerr=[lo, hi], fmt="o", color="#08519c", capsize=3)
+            ax.axvline(0, color="k", lw=0.8)
+            ax.set_yticks(ypos); ax.set_yticklabels([k.replace("Reference: ", "") for k in ks], fontsize=8)
+            ax.set_xlabel("Change in annual return vs holding all deals (points, 95% CI)"); ax.grid(axis="y", alpha=0)
+            base = r["Hold all deals"]
+            ax.set_title(f"{title}\nhold-all: {base['annual_return']:.1%} a year, {base['held']} deals, {base['adverse_held']} adverse breaks", loc="left", fontsize=9)
+        f_.suptitle("Backtest on monthly closes, all-cash deals, test 2019-2025, before costs", x=0.01, ha="left", fontsize=10)
+        f_.tight_layout()
         f_.savefig(fig / "backtest.png"); plt.close(f_)
 
         f_, ax = plt.subplots(figsize=(5.4, 4.6))

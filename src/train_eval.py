@@ -528,7 +528,10 @@ def write_reports(D, out, keep, res, synthetic, final_tab, final):
                 direction, reading = "mixed", f"{nice(r['feature'])}: matters, but not in one direction (interaction or U-shape)"
             else:
                 direction = "higher = riskier" if rho > 0 else "higher = safer"
-                reading = f"{'More / higher' if rho > 0 else 'Less / lower'} {nice(r['feature'])} goes with higher predicted break risk"
+                if r["feature"].startswith(("feat_", "buyer_", "has_", "cond_", "tgt_loss", "solicited", "same_sector", "signed_after")):
+                    reading = f"Deals with this flag ({nice(r['feature'])}) get a {'higher' if rho > 0 else 'lower'} predicted break risk"
+                else:
+                    reading = f"{'More / higher' if rho > 0 else 'Less / lower'} {nice(r['feature'])} goes with higher predicted break risk"
             S_.append(f"| {i} | `{r['feature']}` | {r['mean_abs_shap']:.3f} | {r['mean_abs_shap'] / sh['total_mean_abs']:.0%} | {direction} (rho {rho:+.2f}) | {reading} |")
         S_ += ["", "These are associations the model uses, not causal effects. Features with many missing values also carry a missingness signal "
                "(see `results/robustness.md`). Figure: `figures/shap_summary.png`.", ""]
