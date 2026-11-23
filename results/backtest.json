@@ -1,649 +1,1112 @@
 {
   "final_model": "lgbm_ext",
-  "benchmark": {
-    "All-cash deals, core sample (main) | label_adverse": {
-      "n_test": 552,
-      "pos_test": 16,
-      "n_train": 1200,
-      "pos_train": 33,
-      "auc": {
-        "Market: p_mkt": {
-          "auc": 0.6187616604477612,
-          "ci95": [
-            0.45796831451460585,
-            0.7708038891396429
+  "panels": {
+    "All-cash deals (main) | Test period 2019-2025": {
+      "n": 623,
+      "adverse": 22,
+      "topped": 6,
+      "strategies": {
+        "Hold all deals": {
+          "held": 623,
+          "adverse_held": 22,
+          "topped_held": 6,
+          "mean_ret": 0.026245691440623962,
+          "median_hold": 92.0,
+          "annual_return": 0.0676107826393498,
+          "usd_per_100m": 6761078.26393498,
+          "delta_vs_all": 0.0,
+          "delta_ci95": null
+        },
+        "Skip riskiest 10% by model": {
+          "held": 561,
+          "adverse_held": 20,
+          "topped_held": 5,
+          "mean_ret": 0.02665787089604925,
+          "median_hold": 90.0,
+          "annual_return": 0.07039538487567414,
+          "usd_per_100m": 7039538.487567414,
+          "delta_vs_all": 0.0027846022363243322,
+          "delta_ci95": [
+            -0.0055529789707938195,
+            0.01408645844694041
           ]
         },
-        "Market: p_mkt with carry": {
-          "auc": 0.6463386194029851,
-          "ci95": [
-            0.48680300010298316,
-            0.7899120020013375
+        "Skip riskiest 20% by model": {
+          "held": 498,
+          "adverse_held": 16,
+          "topped_held": 4,
+          "mean_ret": 0.0241527868214151,
+          "median_hold": 85.5,
+          "annual_return": 0.06775080340321948,
+          "usd_per_100m": 6775080.340321949,
+          "delta_vs_all": 0.00014002076386968043,
+          "delta_ci95": [
+            -0.01916150639505055,
+            0.018798413504016235
           ]
         },
-        "Market: raw spread": {
-          "auc": 0.6594566231343283,
-          "ci95": [
-            0.4742321642120164,
-            0.8149197119255137
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 335,
+          "adverse_held": 10,
+          "topped_held": 2,
+          "mean_ret": 0.043928245448306515,
+          "median_hold": 89.0,
+          "annual_return": 0.11103287192392258,
+          "usd_per_100m": 11103287.192392258,
+          "delta_vs_all": 0.04342208928457278,
+          "delta_ci95": [
+            0.016431928776190572,
+            0.07207885043601764
           ]
         },
-        "Market: logistic on p_mkt + spread (fitted on train)": {
-          "auc": 0.6142723880597015,
-          "ci95": [
-            0.4371864816826305,
-            0.7629602013610814
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 335,
+          "adverse_held": 16,
+          "topped_held": 2,
+          "mean_ret": 0.04663393814426915,
+          "median_hold": 122.0,
+          "annual_return": 0.09326863906620396,
+          "usd_per_100m": 9326863.906620396,
+          "delta_vs_all": 0.025657856426854156,
+          "delta_ci95": [
+            0.006078135944211808,
+            0.04555269297217096
           ]
         },
-        "Model (announcement date)": {
-          "auc": 0.5993470149253732,
-          "ci95": [
-            0.45696333261139804,
-            0.7312711458283414
-          ]
-        },
-        "Model + market (stack fitted on train)": {
-          "auc": 0.6414412313432836,
-          "ci95": [
-            0.511483784679934,
-            0.7655257782269208
+        "Reference: skip the widest 10% of spreads": {
+          "held": 561,
+          "adverse_held": 16,
+          "topped_held": 5,
+          "mean_ret": 0.01176480126653164,
+          "median_hold": 89.0,
+          "annual_return": 0.03381744527123015,
+          "usd_per_100m": 3381744.527123015,
+          "delta_vs_all": -0.03379333736811965,
+          "delta_ci95": [
+            -0.05303860898600056,
+            -0.01546101637112433
           ]
         }
       },
-      "incremental": {
-        "stack_minus_market": [
-          0.027168843283582045,
-          [
-            -0.09631408328253326,
-            0.15267364810759
-          ],
-          0.671
+      "by_outcome": {
+        "closed": {
+          "n": 595,
+          "mean_ret": 0.03985566891681004,
+          "median_ret": 0.018100938217431306,
+          "min_ret": -0.4461340179879356,
+          "max_ret": 0.9788674812369851,
+          "median_hold": 91.0,
+          "mean_score": 0.039055378336572286,
+          "mean_p_mkt": 0.15936525694960854
+        },
+        "topped": {
+          "n": 6,
+          "mean_ret": 0.16200515216713274,
+          "median_ret": 0.15730658867902292,
+          "min_ret": 0.03451987124731293,
+          "max_ret": 0.33780199811751466,
+          "median_hold": 68.0,
+          "mean_score": 0.053253289106700435,
+          "mean_p_mkt": 0.09795559856185515
+        },
+        "adverse_break": {
+          "n": 22,
+          "mean_ret": -0.3788676432270927,
+          "median_ret": -0.4487488318030256,
+          "min_ret": -0.8338552727503306,
+          "max_ret": 0.6171688123027006,
+          "median_hold": 395.5,
+          "mean_score": 0.0461801645674081,
+          "mean_p_mkt": 0.30347986623167805
+        }
+      },
+      "hold_all_ci95": [
+        0.03785639147008172,
+        0.09723820337726032
+      ],
+      "rule_minus_market_only": {
+        "point": 0.017764232857718623,
+        "ci95": [
+          -0.003151732912302017,
+          0.04410379574987093
         ],
-        "stack_minus_model": [
-          0.042094216417910335,
-          [
-            -0.06051434841613403,
-            0.17744587985487187
-          ],
-          0.747
-        ],
-        "model_minus_pmkt": [
-          -0.01941464552238792,
-          [
-            -0.23220678352449456,
-            0.18212575345486617
-          ],
-          0.431
-        ],
-        "stack_coef": [
-          0.6877261480880067,
-          1.9195457100665396,
-          0.0867181968213472
-        ]
+        "overlap": 0.6149253731343284,
+        "mean_spread_rule": 0.058718430372799106,
+        "mean_spread_all": 0.036505323071046494
       }
     },
-    "All-cash deals, core sample (main) | label": {
-      "n_test": 552,
-      "pos_test": 21,
-      "n_train": 1200,
-      "pos_train": 63,
-      "auc": {
-        "Market: p_mkt": {
-          "auc": 0.6029055690072639,
-          "ci95": [
-            0.4623218404355331,
-            0.7384487356185236
+    "All-cash deals (main) | Pooled out-of-time 2013-2025": {
+      "n": 1205,
+      "adverse": 38,
+      "topped": 17,
+      "strategies": {
+        "Hold all deals": {
+          "held": 1205,
+          "adverse_held": 38,
+          "topped_held": 17,
+          "mean_ret": 0.02269112456273653,
+          "median_hold": 88.0,
+          "annual_return": 0.06354581138210802,
+          "usd_per_100m": 6354581.138210802,
+          "delta_vs_all": 0.0,
+          "delta_ci95": null
+        },
+        "Skip riskiest 10% by model": {
+          "held": 1085,
+          "adverse_held": 32,
+          "topped_held": 16,
+          "mean_ret": 0.02390273108803761,
+          "median_hold": 85.0,
+          "annual_return": 0.07022313856928852,
+          "usd_per_100m": 7022313.856928852,
+          "delta_vs_all": 0.006677327187180504,
+          "delta_ci95": [
+            -0.0009894607280489126,
+            0.01368517674948443
           ]
         },
-        "Market: p_mkt with carry": {
-          "auc": 0.6314231907452247,
-          "ci95": [
-            0.5033475813705013,
-            0.7563568711848607
+        "Skip riskiest 20% by model": {
+          "held": 965,
+          "adverse_held": 27,
+          "topped_held": 14,
+          "mean_ret": 0.021295649909966276,
+          "median_hold": 83.0,
+          "annual_return": 0.06485099201592447,
+          "usd_per_100m": 6485099.201592446,
+          "delta_vs_all": 0.0013051806338164468,
+          "delta_ci95": [
+            -0.007928676743743937,
+            0.011019343584121242
           ]
         },
-        "Market: raw spread": {
-          "auc": 0.6594924222042865,
-          "ci95": [
-            0.5042170745549484,
-            0.791877410097749
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 676,
+          "adverse_held": 24,
+          "topped_held": 9,
+          "mean_ret": 0.03125431898467029,
+          "median_hold": 85.5,
+          "annual_return": 0.08711018735628895,
+          "usd_per_100m": 8711018.735628895,
+          "delta_vs_all": 0.02356437597418093,
+          "delta_ci95": [
+            0.0030591926119514458,
+            0.04640380442130346
           ]
         },
-        "Market: logistic on p_mkt + spread (fitted on train)": {
-          "auc": 0.5994081248318536,
-          "ci95": [
-            0.45318022299943206,
-            0.7352755669343489
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 676,
+          "adverse_held": 33,
+          "topped_held": 6,
+          "mean_ret": 0.03553846847574657,
+          "median_hold": 110.5,
+          "annual_return": 0.07883308500886173,
+          "usd_per_100m": 7883308.500886173,
+          "delta_vs_all": 0.015287273626753708,
+          "delta_ci95": [
+            0.0041633894893897214,
+            0.028678854405138256
           ]
         },
-        "Model (announcement date)": {
-          "auc": 0.614025647923953,
-          "ci95": [
-            0.49560515904936153,
-            0.7255819042721098
-          ]
-        },
-        "Model + market (stack fitted on train)": {
-          "auc": 0.6374316204824679,
-          "ci95": [
-            0.5273778479760289,
-            0.7464448505722087
+        "Reference: skip the widest 10% of spreads": {
+          "held": 1085,
+          "adverse_held": 24,
+          "topped_held": 16,
+          "mean_ret": 0.01145721798874604,
+          "median_hold": 84.0,
+          "annual_return": 0.035448005890571496,
+          "usd_per_100m": 3544800.58905715,
+          "delta_vs_all": -0.028097805491536523,
+          "delta_ci95": [
+            -0.042433495205512095,
+            -0.015465426015449178
           ]
         }
       },
-      "incremental": {
-        "stack_minus_market": [
-          0.03802349565061436,
-          [
-            -0.07102256601863967,
-            0.14416986491902964
-          ],
-          0.751
+      "by_outcome": {
+        "closed": {
+          "n": 1150,
+          "mean_ret": 0.031930268073885944,
+          "median_ret": 0.013863824391400659,
+          "min_ret": -0.4461340179879356,
+          "max_ret": 0.9788674812369851,
+          "median_hold": 88.0,
+          "mean_score": 0.02979883794829737,
+          "mean_p_mkt": 0.13250645030221825
+        },
+        "topped": {
+          "n": 17,
+          "mean_ret": 0.14613690744262534,
+          "median_ret": 0.1420021836939731,
+          "min_ret": 0.03451987124731293,
+          "max_ret": 0.33780199811751466,
+          "median_hold": 58.0,
+          "mean_score": 0.026625397081911,
+          "mean_p_mkt": 0.10095003761417004
+        },
+        "adverse_break": {
+          "n": 38,
+          "mean_ret": -0.3121402792998933,
+          "median_ret": -0.2890601760727353,
+          "min_ret": -0.8338552727503306,
+          "max_ret": 0.6171688123027006,
+          "median_hold": 360.0,
+          "mean_score": 0.035733714082292846,
+          "mean_p_mkt": 0.3353509309886529
+        }
+      },
+      "hold_all_ci95": [
+        0.04480195652146426,
+        0.08163603137548625
+      ],
+      "rule_minus_market_only": {
+        "point": 0.00827710234742722,
+        "ci95": [
+          -0.009920746315320495,
+          0.028788459778771085
         ],
-        "stack_minus_model": [
-          0.023405972558514954,
-          [
-            -0.0693613713037257,
-            0.12471347248576839
-          ],
-          0.6685
-        ],
-        "model_minus_pmkt": [
-          0.011120078916689091,
-          [
-            -0.1575255422415895,
-            0.17537641502140333
-          ],
-          0.551
-        ],
-        "stack_coef": [
-          0.6226228867859566,
-          1.5461579990797647,
-          0.18437860622594274
-        ]
+        "overlap": 0.6464497041420119,
+        "mean_spread_rule": 0.040111889589947124,
+        "mean_spread_all": 0.02692942581616743
       }
     },
-    "All considerations, core sample (robustness) | label_adverse": {
-      "n_test": 849,
-      "pos_test": 28,
-      "n_train": 1863,
-      "pos_train": 65,
-      "auc": {
-        "Market: p_mkt": {
-          "auc": 0.591874021228467,
-          "ci95": [
-            0.46241853756543533,
-            0.7128544367231481
-          ]
-        },
-        "Market: p_mkt with carry": {
-          "auc": 0.6116669566730468,
-          "ci95": [
-            0.4869858592325924,
-            0.7235107707236383
-          ]
-        },
-        "Market: raw spread": {
-          "auc": 0.6127327301200627,
-          "ci95": [
-            0.4825811464824036,
-            0.7388902903234735
-          ]
-        },
-        "Market: logistic on p_mkt + spread (fitted on train)": {
-          "auc": 0.5963546198016357,
-          "ci95": [
-            0.4740464007477302,
-            0.7151321706860148
-          ]
-        },
-        "Model (announcement date)": {
-          "auc": 0.6099269183922046,
-          "ci95": [
-            0.5094135857806528,
-            0.710007281553398
-          ]
-        },
-        "Model + market (stack fitted on train)": {
-          "auc": 0.6258917696189316,
-          "ci95": [
-            0.5171102580097741,
-            0.7283326008036415
-          ]
-        }
-      },
-      "incremental": {
-        "stack_minus_market": [
-          0.029537149817295827,
-          [
-            -0.015960304612671127,
-            0.07533624376429703
-          ],
-          0.892
-        ],
-        "stack_minus_model": [
-          0.015964851226726973,
-          [
-            -0.09287910608334722,
-            0.1298243926569199
-          ],
-          0.602
-        ],
-        "model_minus_pmkt": [
-          0.01805289716373759,
-          [
-            -0.12520884380107758,
-            0.16523734275303964
-          ],
-          0.597
-        ],
-        "stack_coef": [
-          0.31506459460937936,
-          2.0338038709667314,
-          0.5128264326399764
-        ]
-      }
-    },
-    "All considerations, core sample (robustness) | label": {
-      "n_test": 849,
-      "pos_test": 40,
-      "n_train": 1863,
-      "pos_train": 110,
-      "auc": {
-        "Market: p_mkt": {
-          "auc": 0.5449629171817058,
-          "ci95": [
-            0.4389396886484204,
-            0.6452728484036425
-          ]
-        },
-        "Market: p_mkt with carry": {
-          "auc": 0.5657292954264524,
-          "ci95": [
-            0.4607127440749302,
-            0.6630701739763475
-          ]
-        },
-        "Market: raw spread": {
-          "auc": 0.5802688504326329,
-          "ci95": [
-            0.4726676942098214,
-            0.6890664381488345
-          ]
-        },
-        "Market: logistic on p_mkt + spread (fitted on train)": {
-          "auc": 0.5483467243510507,
-          "ci95": [
-            0.4384330102264885,
-            0.6526970388787935
-          ]
-        },
-        "Model (announcement date)": {
-          "auc": 0.619221260815822,
-          "ci95": [
-            0.5399023099454134,
-            0.6945424019278199
-          ]
-        },
-        "Model + market (stack fitted on train)": {
-          "auc": 0.6021940667490729,
-          "ci95": [
-            0.5208023552550685,
-            0.6873898821987329
-          ]
-        }
-      },
-      "incremental": {
-        "stack_minus_market": [
-          0.05384734239802225,
-          [
-            0.0009826742383203112,
-            0.10763268467097316
-          ],
-          0.9765
-        ],
-        "stack_minus_model": [
-          -0.01702719406674902,
-          [
-            -0.09586598281042738,
-            0.06393829923114587
-          ],
-          0.318
-        ],
-        "model_minus_pmkt": [
-          0.07425834363411621,
-          [
-            -0.04395449953193152,
-            0.19892561065640016
-          ],
-          0.888
-        ],
-        "stack_coef": [
-          0.4076513538673389,
-          1.531145184082214,
-          0.2254427116796604
-        ]
-      }
-    }
-  },
-  "backtest": {
-    "All-cash deals (main)": {
+    "All-cash deals with a day-1 spread between -5% and +25% | Test period 2019-2025": {
       "n": 580,
+      "adverse": 18,
+      "topped": 5,
       "strategies": {
         "Hold all deals": {
           "held": 580,
-          "adverse_held": 16,
+          "adverse_held": 18,
           "topped_held": 5,
-          "mean_ret": 0.03061565007713161,
-          "median_hold": 83.0,
-          "annual_return": 0.08728245311995855,
-          "usd_per_100m": 8728245.311995855,
+          "mean_ret": 0.016982520267311917,
+          "median_hold": 92.0,
+          "annual_return": 0.04518455566491049,
+          "usd_per_100m": 4518455.566491049,
           "delta_vs_all": 0.0,
           "delta_ci95": null
         },
         "Skip riskiest 10% by model": {
           "held": 522,
-          "adverse_held": 15,
+          "adverse_held": 16,
           "topped_held": 4,
-          "mean_ret": 0.03264546137287163,
-          "median_hold": 77.5,
-          "annual_return": 0.09600598507992703,
-          "usd_per_100m": 9600598.507992702,
-          "delta_vs_all": 0.008723531959968472,
+          "mean_ret": 0.016888114581121494,
+          "median_hold": 90.0,
+          "annual_return": 0.04603279643978652,
+          "usd_per_100m": 4603279.643978652,
+          "delta_vs_all": 0.0008482407748760315,
           "delta_ci95": [
-            -0.0024673722291445924,
-            0.02027463458871926
+            -0.007902975906466131,
+            0.01257484009138663
           ]
         },
         "Skip riskiest 20% by model": {
           "held": 464,
-          "adverse_held": 12,
+          "adverse_held": 14,
           "topped_held": 4,
-          "mean_ret": 0.029240649697890097,
-          "median_hold": 72.0,
-          "annual_return": 0.09187237134917661,
-          "usd_per_100m": 9187237.134917662,
-          "delta_vs_all": 0.00458991822921806,
+          "mean_ret": 0.01500179743700462,
+          "median_hold": 85.5,
+          "annual_return": 0.042311929220961955,
+          "usd_per_100m": 4231192.922096196,
+          "delta_vs_all": -0.002872626443948534,
           "delta_ci95": [
-            -0.014466679239113451,
-            0.02522608679025258
+            -0.01553249344493743,
+            0.01276691780998213
           ]
         },
-        "Hold only if model probability < market-implied": {
-          "held": 377,
-          "adverse_held": 12,
-          "topped_held": 4,
-          "mean_ret": 0.061273513366615094,
-          "median_hold": 100.0,
-          "annual_return": 0.14586685477938985,
-          "usd_per_100m": 14586685.477938985,
-          "delta_vs_all": 0.058584401659431296,
-          "delta_ci95": [
-            0.038130032191568845,
-            0.08004343205274791
-          ]
-        },
-        "Hold only if model risk percentile < market risk percentile": {
-          "held": 286,
-          "adverse_held": 8,
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 308,
+          "adverse_held": 6,
           "topped_held": 2,
-          "mean_ret": 0.06961042931063961,
-          "median_hold": 88.5,
-          "annual_return": 0.18159318062119326,
-          "usd_per_100m": 18159318.062119327,
-          "delta_vs_all": 0.0943107275012347,
+          "mean_ret": 0.03127533532735569,
+          "median_hold": 85.5,
+          "annual_return": 0.08288870756521588,
+          "usd_per_100m": 8288870.756521588,
+          "delta_vs_all": 0.03770415190030539,
           "delta_ci95": [
-            0.06208695862854469,
-            0.13114376937982095
+            0.013841740435025158,
+            0.062146698277742246
           ]
         },
-        "Reference: skip widest-spread 10% (market's own ranking)": {
-          "held": 522,
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 308,
           "adverse_held": 12,
-          "topped_held": 4,
-          "mean_ret": 0.003744193555504641,
-          "median_hold": 78.0,
-          "annual_return": 0.0114146470731443,
-          "usd_per_100m": 1141464.70731443,
-          "delta_vs_all": -0.07586780604681426,
+          "topped_held": 2,
+          "mean_ret": 0.031685203563564586,
+          "median_hold": 121.5,
+          "annual_return": 0.06561879346798194,
+          "usd_per_100m": 6561879.346798194,
+          "delta_vs_all": 0.02043423780307145,
           "delta_ci95": [
-            -0.10232779964582185,
-            -0.051078490052736555
+            0.0035391782367099355,
+            0.03967086383574781
+          ]
+        },
+        "Reference: skip the widest 10% of spreads": {
+          "held": 522,
+          "adverse_held": 13,
+          "topped_held": 4,
+          "mean_ret": 0.009773014232247444,
+          "median_hold": 89.0,
+          "annual_return": 0.029394948405110113,
+          "usd_per_100m": 2939494.8405110114,
+          "delta_vs_all": -0.015789607259800376,
+          "delta_ci95": [
+            -0.03121382798510309,
+            -0.0002364224307874484
           ]
         }
       },
       "by_outcome": {
         "closed": {
-          "n": 559,
-          "mean_ret": 0.0437895947013518,
-          "median_ret": 0.016949152542372836,
-          "min_ret": -0.4461305007587253
+          "n": 557,
+          "mean_ret": 0.03138537039876442,
+          "median_ret": 0.018154717785292762,
+          "min_ret": -0.4461340179879356,
+          "max_ret": 0.7541028816416282,
+          "median_hold": 91.0,
+          "mean_score": 0.03902409911934124,
+          "mean_p_mkt": 0.14891626563439037
         },
         "topped": {
           "n": 5,
-          "mean_ret": 0.09206764581103144,
-          "median_ret": 0.09973106230389961,
-          "min_ret": -0.046260869565217355
+          "mean_ret": 0.15715546667902242,
+          "median_ret": 0.12835959775036154,
+          "min_ret": 0.03451987124731293,
+          "max_ret": 0.33780199811751466,
+          "median_hold": 75.0,
+          "mean_score": 0.04997034638147184,
+          "mean_p_mkt": 0.11754671827422618
         },
         "adverse_break": {
-          "n": 16,
-          "mean_ret": -0.44885278889840496,
-          "median_ret": -0.48318304794579414,
-          "min_ret": -0.7983490566037735
+          "n": 18,
+          "mean_ret": -0.46764260502588784,
+          "median_ret": -0.49128922603259556,
+          "min_ret": -0.8338552727503306,
+          "max_ret": -0.13707687241956257,
+          "median_hold": 367.5,
+          "mean_score": 0.043351109999951926,
+          "mean_p_mkt": 0.17248454841165214
         }
+      },
+      "hold_all_ci95": [
+        0.019000570310505317,
+        0.0691661051871612
+      ],
+      "rule_minus_market_only": {
+        "point": 0.01726991409723394,
+        "ci95": [
+          -0.00504245653573666,
+          0.03962677175641017
+        ],
+        "overlap": 0.5909090909090909,
+        "mean_spread_rule": 0.036270850162006874,
+        "mean_spread_all": 0.027019181808885726
       }
     },
-    "All considerations, including stock and mixed (robustness)": {
-      "n": 911,
+    "All-cash deals with a day-1 spread between -5% and +25% | Pooled out-of-time 2013-2025": {
+      "n": 1144,
+      "adverse": 34,
+      "topped": 13,
       "strategies": {
         "Hold all deals": {
-          "held": 911,
-          "adverse_held": 28,
-          "topped_held": 14,
-          "mean_ret": 0.03263719666024193,
-          "median_hold": 92.0,
-          "annual_return": 0.08851263740930727,
-          "usd_per_100m": 8851263.740930727,
+          "held": 1144,
+          "adverse_held": 34,
+          "topped_held": 13,
+          "mean_ret": 0.016560395477489616,
+          "median_hold": 88.0,
+          "annual_return": 0.04731897721682392,
+          "usd_per_100m": 4731897.721682392,
           "delta_vs_all": 0.0,
           "delta_ci95": null
         },
         "Skip riskiest 10% by model": {
-          "held": 820,
-          "adverse_held": 25,
-          "topped_held": 11,
-          "mean_ret": 0.032278606822357225,
-          "median_hold": 92.0,
-          "annual_return": 0.08796870438734615,
-          "usd_per_100m": 8796870.438734615,
-          "delta_vs_all": -0.0005439330219611238,
+          "held": 1029,
+          "adverse_held": 29,
+          "topped_held": 12,
+          "mean_ret": 0.017402528195666934,
+          "median_hold": 86.0,
+          "annual_return": 0.05138991054407734,
+          "usd_per_100m": 5138991.054407734,
+          "delta_vs_all": 0.0040709333272534245,
           "delta_ci95": [
-            -0.018932048755487516,
-            0.015114157073612756
+            -0.0012862790789556966,
+            0.009977528842653467
           ]
         },
         "Skip riskiest 20% by model": {
-          "held": 729,
-          "adverse_held": 21,
-          "topped_held": 10,
-          "mean_ret": 0.027125807095634544,
-          "median_hold": 91.0,
-          "annual_return": 0.0782473508129822,
-          "usd_per_100m": 7824735.08129822,
-          "delta_vs_all": -0.010265286596325071,
+          "held": 916,
+          "adverse_held": 25,
+          "topped_held": 11,
+          "mean_ret": 0.016520950856221062,
+          "median_hold": 83.0,
+          "annual_return": 0.05087138247622905,
+          "usd_per_100m": 5087138.247622905,
+          "delta_vs_all": 0.003552405259405131,
           "delta_ci95": [
-            -0.031361255920785105,
-            0.013656268024690603
+            -0.006493631212021789,
+            0.013160398919087778
           ]
         },
-        "Hold only if model probability < market-implied": {
-          "held": 614,
-          "adverse_held": 21,
-          "topped_held": 7,
-          "mean_ret": 0.054457991266934694,
-          "median_hold": 114.0,
-          "annual_return": 0.128858556088739,
-          "usd_per_100m": 12885855.6088739,
-          "delta_vs_all": 0.04034591867943173,
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 643,
+          "adverse_held": 20,
+          "topped_held": 8,
+          "mean_ret": 0.02186066493116566,
+          "median_hold": 84.0,
+          "annual_return": 0.06308281904833243,
+          "usd_per_100m": 6308281.904833243,
+          "delta_vs_all": 0.015763841831508515,
           "delta_ci95": [
-            0.023220636404790624,
-            0.05864418538269455
+            -0.004315853629472624,
+            0.03894233816650647
           ]
         },
-        "Hold only if model risk percentile < market risk percentile": {
-          "held": 458,
-          "adverse_held": 12,
-          "topped_held": 5,
-          "mean_ret": 0.057744503899103856,
-          "median_hold": 101.0,
-          "annual_return": 0.14682264919788265,
-          "usd_per_100m": 14682264.919788266,
-          "delta_vs_all": 0.05831001178857538,
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 643,
+          "adverse_held": 28,
+          "topped_held": 6,
+          "mean_ret": 0.025111354143251264,
+          "median_hold": 109.0,
+          "annual_return": 0.05765007249068616,
+          "usd_per_100m": 5765007.249068616,
+          "delta_vs_all": 0.010331095273862244,
           "delta_ci95": [
-            0.028618188774280524,
-            0.08936948780513092
+            0.0017287675876826905,
+            0.019668723806383945
           ]
         },
-        "Reference: skip widest-spread 10% (market's own ranking)": {
-          "held": 820,
+        "Reference: skip the widest 10% of spreads": {
+          "held": 1029,
           "adverse_held": 21,
           "topped_held": 11,
-          "mean_ret": 0.013347507502855772,
-          "median_hold": 92.0,
-          "annual_return": 0.03721525716472651,
-          "usd_per_100m": 3721525.7164726513,
-          "delta_vs_all": -0.05129738024458076,
+          "mean_ret": 0.011143670274799141,
+          "median_hold": 83.0,
+          "annual_return": 0.035625843960440204,
+          "usd_per_100m": 3562584.3960440205,
+          "delta_vs_all": -0.011693133256383714,
           "delta_ci95": [
-            -0.07196655194548086,
-            -0.03133250508623062
+            -0.02158818688615746,
+            -0.0021892471988740067
           ]
         }
       },
       "by_outcome": {
         "closed": {
-          "n": 869,
-          "mean_ret": 0.04231692829597894,
-          "median_ret": 0.018218623481781382,
-          "min_ret": -0.7285259809119831
+          "n": 1097,
+          "mean_ret": 0.026347320152952852,
+          "median_ret": 0.01393881980408529,
+          "min_ret": -0.4461340179879356,
+          "max_ret": 0.7541028816416282,
+          "median_hold": 87.0,
+          "mean_score": 0.029498634474661743,
+          "mean_p_mkt": 0.12417462395195009
+        },
+        "topped": {
+          "n": 13,
+          "mean_ret": 0.15276089010190194,
+          "median_ret": 0.1420021836939731,
+          "min_ret": 0.03451987124731293,
+          "max_ret": 0.33780199811751466,
+          "median_hold": 65.0,
+          "mean_score": 0.027233979490751462,
+          "mean_p_mkt": 0.13201158764929927
+        },
+        "adverse_break": {
+          "n": 34,
+          "mean_ret": -0.3512885103784084,
+          "median_ret": -0.2992911075794603,
+          "min_ret": -0.8338552727503306,
+          "max_ret": 0.19225098998557422,
+          "median_hold": 351.5,
+          "mean_score": 0.03349527807585924,
+          "mean_p_mkt": 0.2697500056435773
+        }
+      },
+      "hold_all_ci95": [
+        0.03336989675408499,
+        0.05942299747609536
+      ],
+      "rule_minus_market_only": {
+        "point": 0.005432746557646272,
+        "ci95": [
+          -0.012772212244541965,
+          0.02682800221037616
+        ],
+        "overlap": 0.6345256609642301,
+        "mean_spread_rule": 0.025385677182928352,
+        "mean_spread_all": 0.021140099113712608
+      }
+    },
+    "All-cash deals, broken deals sold five trading days after the cancellation date | Test period 2019-2025": {
+      "n": 623,
+      "adverse": 22,
+      "topped": 6,
+      "strategies": {
+        "Hold all deals": {
+          "held": 623,
+          "adverse_held": 22,
+          "topped_held": 6,
+          "mean_ret": 0.025337577880960097,
+          "median_hold": 92.0,
+          "annual_return": 0.06515332144745026,
+          "usd_per_100m": 6515332.144745026,
+          "delta_vs_all": 0.0,
+          "delta_ci95": null
+        },
+        "Skip riskiest 10% by model": {
+          "held": 561,
+          "adverse_held": 20,
+          "topped_held": 5,
+          "mean_ret": 0.025458689710314123,
+          "median_hold": 90.0,
+          "annual_return": 0.06710668484137419,
+          "usd_per_100m": 6710668.48413742,
+          "delta_vs_all": 0.0019533633939239348,
+          "delta_ci95": [
+            -0.006193297280069433,
+            0.013127366572116324
+          ]
+        },
+        "Skip riskiest 20% by model": {
+          "held": 498,
+          "adverse_held": 16,
+          "topped_held": 4,
+          "mean_ret": 0.022870079083656847,
+          "median_hold": 87.0,
+          "annual_return": 0.0640419995538006,
+          "usd_per_100m": 6404199.955380061,
+          "delta_vs_all": -0.0011113218936496527,
+          "delta_ci95": [
+            -0.020502802473254447,
+            0.018086964265904382
+          ]
+        },
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 335,
+          "adverse_held": 10,
+          "topped_held": 2,
+          "mean_ret": 0.042639636821331844,
+          "median_hold": 89.0,
+          "annual_return": 0.10762006341758558,
+          "usd_per_100m": 10762006.341758559,
+          "delta_vs_all": 0.04246674197013532,
+          "delta_ci95": [
+            0.015306613504103785,
+            0.07170478632284419
+          ]
+        },
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 335,
+          "adverse_held": 16,
+          "topped_held": 2,
+          "mean_ret": 0.04478792579359838,
+          "median_hold": 122.0,
+          "annual_return": 0.08942446443415754,
+          "usd_per_100m": 8942446.443415754,
+          "delta_vs_all": 0.02427114298670728,
+          "delta_ci95": [
+            0.004513868589604677,
+            0.04413316571446444
+          ]
+        },
+        "Reference: skip the widest 10% of spreads": {
+          "held": 561,
+          "adverse_held": 16,
+          "topped_held": 5,
+          "mean_ret": 0.011100471330352725,
+          "median_hold": 89.0,
+          "annual_return": 0.031854642449158095,
+          "usd_per_100m": 3185464.2449158095,
+          "delta_vs_all": -0.03329867899829216,
+          "delta_ci95": [
+            -0.052479990313153244,
+            -0.014675434563425552
+          ]
+        }
+      },
+      "by_outcome": {
+        "closed": {
+          "n": 595,
+          "mean_ret": 0.03985566891681004,
+          "median_ret": 0.018100938217431306,
+          "min_ret": -0.4461340179879356,
+          "max_ret": 0.9788674812369851,
+          "median_hold": 91.0,
+          "mean_score": 0.039055378336572286,
+          "mean_p_mkt": 0.15936525694960854
+        },
+        "topped": {
+          "n": 6,
+          "mean_ret": 0.1493442185899505,
+          "median_ret": 0.13949005491758393,
+          "min_ret": 0.028276762333147687,
+          "max_ret": 0.3100498727468144,
+          "median_hold": 73.5,
+          "mean_score": 0.053253289106700435,
+          "mean_p_mkt": 0.09795559856185515
+        },
+        "adverse_break": {
+          "n": 22,
+          "mean_ret": -0.4011307862365243,
+          "median_ret": -0.4401126626798637,
+          "min_ret": -0.8035522719476174,
+          "max_ret": 0.6024668240394064,
+          "median_hold": 401.0,
+          "mean_score": 0.0461801645674081,
+          "mean_p_mkt": 0.30347986623167805
+        }
+      },
+      "hold_all_ci95": [
+        0.034937820330048545,
+        0.09514999216210673
+      ],
+      "rule_minus_market_only": {
+        "point": 0.01819559898342804,
+        "ci95": [
+          -0.0033972468738715147,
+          0.044970161351237735
+        ],
+        "overlap": 0.6149253731343284,
+        "mean_spread_rule": 0.058718430372799106,
+        "mean_spread_all": 0.036505323071046494
+      }
+    },
+    "All-cash deals, broken deals sold five trading days after the cancellation date | Pooled out-of-time 2013-2025": {
+      "n": 1205,
+      "adverse": 38,
+      "topped": 17,
+      "strategies": {
+        "Hold all deals": {
+          "held": 1205,
+          "adverse_held": 38,
+          "topped_held": 17,
+          "mean_ret": 0.022262583249462623,
+          "median_hold": 88.0,
+          "annual_return": 0.062220899145923894,
+          "usd_per_100m": 6222089.914592389,
+          "delta_vs_all": 0.0,
+          "delta_ci95": null
+        },
+        "Skip riskiest 10% by model": {
+          "held": 1085,
+          "adverse_held": 32,
+          "topped_held": 16,
+          "mean_ret": 0.023390850806470517,
+          "median_hold": 86.0,
+          "annual_return": 0.06857888663147034,
+          "usd_per_100m": 6857888.663147034,
+          "delta_vs_all": 0.006357987485546446,
+          "delta_ci95": [
+            -0.0011614192504147307,
+            0.01314382694753397
+          ]
+        },
+        "Skip riskiest 20% by model": {
+          "held": 965,
+          "adverse_held": 27,
+          "topped_held": 14,
+          "mean_ret": 0.02085652889949043,
+          "median_hold": 83.0,
+          "annual_return": 0.06338606070634895,
+          "usd_per_100m": 6338606.070634895,
+          "delta_vs_all": 0.0011651615604250515,
+          "delta_ci95": [
+            -0.007881167442387734,
+            0.010785286220614808
+          ]
+        },
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 676,
+          "adverse_held": 24,
+          "topped_held": 9,
+          "mean_ret": 0.030800214215954632,
+          "median_hold": 86.0,
+          "annual_return": 0.08565972176923371,
+          "usd_per_100m": 8565972.176923372,
+          "delta_vs_all": 0.02343882262330982,
+          "delta_ci95": [
+            0.002634546574401471,
+            0.046992990816589565
+          ]
+        },
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 676,
+          "adverse_held": 33,
+          "topped_held": 6,
+          "mean_ret": 0.03449822929373433,
+          "median_hold": 110.5,
+          "annual_return": 0.07637452083350686,
+          "usd_per_100m": 7637452.083350686,
+          "delta_vs_all": 0.014153621687582968,
+          "delta_ci95": [
+            0.0026972155149162305,
+            0.027570121995710756
+          ]
+        },
+        "Reference: skip the widest 10% of spreads": {
+          "held": 1085,
+          "adverse_held": 24,
+          "topped_held": 16,
+          "mean_ret": 0.011151093202022655,
+          "median_hold": 84.0,
+          "annual_return": 0.034438452845865476,
+          "usd_per_100m": 3443845.2845865474,
+          "delta_vs_all": -0.027782446300058418,
+          "delta_ci95": [
+            -0.042452253616145554,
+            -0.01475056842539998
+          ]
+        }
+      },
+      "by_outcome": {
+        "closed": {
+          "n": 1150,
+          "mean_ret": 0.031930268073885944,
+          "median_ret": 0.013863824391400659,
+          "min_ret": -0.4461340179879356,
+          "max_ret": 0.9788674812369851,
+          "median_hold": 88.0,
+          "mean_score": 0.02979883794829737,
+          "mean_p_mkt": 0.13250645030221825
+        },
+        "topped": {
+          "n": 17,
+          "mean_ret": 0.1447934528149039,
+          "median_ret": 0.14516053258906902,
+          "min_ret": 0.028276762333147687,
+          "max_ret": 0.3100498727468144,
+          "median_hold": 64.0,
+          "mean_score": 0.026625397081911,
+          "mean_p_mkt": 0.10095003761417004
+        },
+        "adverse_break": {
+          "n": 38,
+          "mean_ret": -0.325128530716309,
+          "median_ret": -0.3099309026866393,
+          "min_ret": -0.8098755471021506,
+          "max_ret": 0.6024668240394064,
+          "median_hold": 365.0,
+          "mean_score": 0.035733714082292846,
+          "mean_p_mkt": 0.3353509309886529
+        }
+      },
+      "hold_all_ci95": [
+        0.04357987816483813,
+        0.08039658492953783
+      ],
+      "rule_minus_market_only": {
+        "point": 0.00928520093572685,
+        "ci95": [
+          -0.009457373057197153,
+          0.030815554029282283
+        ],
+        "overlap": 0.6464497041420119,
+        "mean_spread_rule": 0.040111889589947124,
+        "mean_spread_all": 0.02692942581616743
+      }
+    },
+    "All considerations, including stock and mixed deals, unhedged (robustness) | Test period 2019-2025": {
+      "n": 902,
+      "adverse": 31,
+      "topped": 14,
+      "strategies": {
+        "Hold all deals": {
+          "held": 902,
+          "adverse_held": 31,
+          "topped_held": 14,
+          "mean_ret": 0.03846377692484484,
+          "median_hold": 109.0,
+          "annual_return": 0.09290850533357788,
+          "usd_per_100m": 9290850.533357788,
+          "delta_vs_all": 0.0,
+          "delta_ci95": null
+        },
+        "Skip riskiest 10% by model": {
+          "held": 812,
+          "adverse_held": 28,
+          "topped_held": 13,
+          "mean_ret": 0.037988796466606994,
+          "median_hold": 106.0,
+          "annual_return": 0.09276996437859848,
+          "usd_per_100m": 9276996.437859848,
+          "delta_vs_all": -0.00013854095497939367,
+          "delta_ci95": [
+            -0.015137452068025158,
+            0.014503929828203716
+          ]
+        },
+        "Skip riskiest 20% by model": {
+          "held": 722,
+          "adverse_held": 22,
+          "topped_held": 10,
+          "mean_ret": 0.036414040183014654,
+          "median_hold": 103.0,
+          "annual_return": 0.09366981960847905,
+          "usd_per_100m": 9366981.960847905,
+          "delta_vs_all": 0.0007613142749011703,
+          "delta_ci95": [
+            -0.018303637258584464,
+            0.021482020227255174
+          ]
+        },
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 405,
+          "adverse_held": 13,
+          "topped_held": 3,
+          "mean_ret": 0.06175955294210105,
+          "median_hold": 111.0,
+          "annual_return": 0.14209503367573678,
+          "usd_per_100m": 14209503.367573678,
+          "delta_vs_all": 0.049186528342158906,
+          "delta_ci95": [
+            0.017086500200959073,
+            0.08032599955629531
+          ]
+        },
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 405,
+          "adverse_held": 17,
+          "topped_held": 4,
+          "mean_ret": 0.07112346516228243,
+          "median_hold": 153.0,
+          "annual_return": 0.12855445665604207,
+          "usd_per_100m": 12855445.665604206,
+          "delta_vs_all": 0.03564595132246419,
+          "delta_ci95": [
+            0.010288545965363067,
+            0.0617195201195544
+          ]
+        },
+        "Reference: skip the widest 10% of spreads": {
+          "held": 812,
+          "adverse_held": 24,
+          "topped_held": 13,
+          "mean_ret": 0.02503925051676023,
+          "median_hold": 104.0,
+          "annual_return": 0.06497568658971227,
+          "usd_per_100m": 6497568.658971227,
+          "delta_vs_all": -0.027932818743865606,
+          "delta_ci95": [
+            -0.04340793265010649,
+            -0.012800290654099211
+          ]
+        }
+      },
+      "by_outcome": {
+        "closed": {
+          "n": 857,
+          "mean_ret": 0.0495009287177003,
+          "median_ret": 0.02063300342817387,
+          "min_ret": -0.7229396910746789,
+          "max_ret": 1.6410512253020122,
+          "median_hold": 107.0,
+          "mean_score": 0.04291731227300498,
+          "mean_p_mkt": 0.20422554170622623
         },
         "topped": {
           "n": 14,
-          "mean_ret": 0.14095441097720066,
-          "median_ret": 0.13897551061526559,
-          "min_ret": -0.046260869565217355
+          "mean_ret": 0.1578409473512233,
+          "median_ret": 0.15582695265570579,
+          "min_ret": -0.004654771140419345,
+          "max_ret": 0.3989394481241926,
+          "median_hold": 64.0,
+          "mean_score": 0.05319565953635554,
+          "mean_p_mkt": 0.1517821777992509
         },
         "adverse_break": {
-          "n": 28,
-          "mean_ret": -0.321938795907361,
-          "median_ret": -0.2979717039730954,
-          "min_ret": -0.8346456692913387
+          "n": 31,
+          "mean_ret": -0.32057233508955585,
+          "median_ret": -0.37325905292479067,
+          "min_ret": -0.8338552727503306,
+          "max_ret": 0.6171688123027006,
+          "median_hold": 364.0,
+          "mean_score": 0.04887105708603281,
+          "mean_p_mkt": 0.3180017973932118
         }
+      },
+      "hold_all_ci95": [
+        0.06348171847137714,
+        0.12341464514784437
+      ],
+      "rule_minus_market_only": {
+        "point": 0.013540577019694716,
+        "ci95": [
+          -0.013816864151816629,
+          0.03926910810433445
+        ],
+        "overlap": 0.6,
+        "mean_spread_rule": 0.07601470146055894,
+        "mean_spread_all": 0.04289364815740188
       }
     },
-    "All-cash, plausible spread": {
-      "n": 533,
+    "All considerations, including stock and mixed deals, unhedged (robustness) | Pooled out-of-time 2013-2025": {
+      "n": 1811,
+      "adverse": 61,
+      "topped": 28,
       "strategies": {
         "Hold all deals": {
-          "held": 533,
-          "adverse_held": 13,
-          "topped_held": 4,
-          "mean_ret": 0.020918819233420205,
-          "median_hold": 79.0,
-          "annual_return": 0.06192880906590176,
-          "usd_per_100m": 6192880.906590176,
+          "held": 1811,
+          "adverse_held": 61,
+          "topped_held": 28,
+          "mean_ret": 0.03559177286391581,
+          "median_hold": 109.0,
+          "annual_return": 0.0885817613402511,
+          "usd_per_100m": 8858176.13402511,
           "delta_vs_all": 0.0,
           "delta_ci95": null
         },
         "Skip riskiest 10% by model": {
-          "held": 480,
-          "adverse_held": 12,
-          "topped_held": 3,
-          "mean_ret": 0.020192645449728097,
-          "median_hold": 75.5,
-          "annual_return": 0.061806661241327804,
-          "usd_per_100m": 6180666.12413278,
-          "delta_vs_all": -0.0001221478245739538,
+          "held": 1631,
+          "adverse_held": 52,
+          "topped_held": 26,
+          "mean_ret": 0.03748101569220334,
+          "median_hold": 107.0,
+          "annual_return": 0.09602858888785423,
+          "usd_per_100m": 9602858.888785424,
+          "delta_vs_all": 0.007446827547603133,
           "delta_ci95": [
-            -0.0076241730832198795,
-            0.011193583062258077
+            -0.0031440799252303716,
+            0.01813578595902011
           ]
         },
         "Skip riskiest 20% by model": {
-          "held": 426,
-          "adverse_held": 10,
-          "topped_held": 3,
-          "mean_ret": 0.018567737801619775,
-          "median_hold": 72.0,
-          "annual_return": 0.060649487443519494,
-          "usd_per_100m": 6064948.74435195,
-          "delta_vs_all": -0.0012793216223822637,
+          "held": 1449,
+          "adverse_held": 45,
+          "topped_held": 22,
+          "mean_ret": 0.03573416333284948,
+          "median_hold": 103.0,
+          "annual_return": 0.0952439801153762,
+          "usd_per_100m": 9524398.01153762,
+          "delta_vs_all": 0.0066622187751251005,
           "delta_ci95": [
-            -0.013875917483961948,
-            0.015072327241023583
+            -0.004177842114931309,
+            0.018216960786055336
           ]
         },
-        "Hold only if model probability < market-implied": {
-          "held": 350,
-          "adverse_held": 11,
-          "topped_held": 3,
-          "mean_ret": 0.033859131381079544,
-          "median_hold": 99.5,
-          "annual_return": 0.08268664998342469,
-          "usd_per_100m": 8268664.998342469,
-          "delta_vs_all": 0.020757840917522932,
+        "Model-versus-market rule (threshold from earlier years)": {
+          "held": 988,
+          "adverse_held": 39,
+          "topped_held": 12,
+          "mean_ret": 0.046305704830069676,
+          "median_hold": 107.0,
+          "annual_return": 0.11357925818286747,
+          "usd_per_100m": 11357925.818286747,
+          "delta_vs_all": 0.024997496842616374,
           "delta_ci95": [
-            0.010788566233357664,
-            0.03376604565667209
+            0.00717678117843509,
+            0.04430792412675497
           ]
         },
-        "Hold only if model risk percentile < market risk percentile": {
-          "held": 269,
-          "adverse_held": 10,
-          "topped_held": 1,
-          "mean_ret": 0.030434542426791077,
-          "median_hold": 88.0,
-          "annual_return": 0.07768055391947806,
-          "usd_per_100m": 7768055.391947806,
-          "delta_vs_all": 0.015751744853576305,
+        "Reference: same number of deals, highest market-implied risk first (no model)": {
+          "held": 988,
+          "adverse_held": 47,
+          "topped_held": 11,
+          "mean_ret": 0.05794549632389365,
+          "median_hold": 143.5,
+          "annual_return": 0.11374676735664843,
+          "usd_per_100m": 11374676.735664843,
+          "delta_vs_all": 0.02516500601639733,
           "delta_ci95": [
-            -0.0020007137556342803,
-            0.036686357258393636
+            0.017583365664964174,
+            0.033473385947394824
           ]
         },
-        "Reference: skip widest-spread 10% (market's own ranking)": {
-          "held": 480,
-          "adverse_held": 8,
-          "topped_held": 4,
-          "mean_ret": 0.01124372794096328,
-          "median_hold": 75.0,
-          "annual_return": 0.03628679306752568,
-          "usd_per_100m": 3628679.3067525676,
-          "delta_vs_all": -0.02564201599837608,
+        "Reference: skip the widest 10% of spreads": {
+          "held": 1631,
+          "adverse_held": 43,
+          "topped_held": 25,
+          "mean_ret": 0.023026057910128808,
+          "median_hold": 104.0,
+          "annual_return": 0.06246073427184812,
+          "usd_per_100m": 6246073.427184812,
+          "delta_vs_all": -0.026121027068402983,
           "delta_ci95": [
-            -0.04156440634518624,
-            -0.008492642961221979
+            -0.03462224810916745,
+            -0.01794959287676331
           ]
         }
       },
       "by_outcome": {
         "closed": {
-          "n": 516,
-          "mean_ret": 0.03180299789623018,
-          "median_ret": 0.016727556309092173,
-          "min_ret": -0.049881235154394354
+          "n": 1722,
+          "mean_ret": 0.04393815564377031,
+          "median_ret": 0.016679051839776027,
+          "min_ret": -0.7229396910746789,
+          "max_ret": 1.6410512253020122,
+          "median_hold": 108.0,
+          "mean_score": 0.033805676258486114,
+          "mean_p_mkt": 0.18620456968592955
         },
         "topped": {
-          "n": 4,
-          "mean_ret": 0.0651283784732547,
-          "median_ret": 0.07880443790436142,
-          "min_ret": -0.046260869565217355
+          "n": 28,
+          "mean_ret": 0.17442805463015087,
+          "median_ret": 0.14513819683491835,
+          "min_ret": -0.004654771140419345,
+          "max_ret": 0.9706055311529918,
+          "median_hold": 59.5,
+          "mean_score": 0.03274278258281377,
+          "mean_p_mkt": 0.1557032242224281
         },
         "adverse_break": {
-          "n": 13,
-          "mean_ret": -0.4247022905334478,
-          "median_ret": -0.44532488114104596,
-          "min_ret": -0.7270668176670442
+          "n": 61,
+          "mean_ret": -0.2637506375682814,
+          "median_ret": -0.22582475962908788,
+          "min_ret": -0.8338552727503306,
+          "max_ret": 0.6171688123027006,
+          "median_hold": 350.0,
+          "mean_score": 0.03811907586061453,
+          "mean_p_mkt": 0.37566490016102744
         }
+      },
+      "hold_all_ci95": [
+        0.05892536814655542,
+        0.11487809488429723
+      ],
+      "rule_minus_market_only": {
+        "point": -0.0001675091737809581,
+        "ci95": [
+          -0.014732164607469747,
+          0.015023337377579448
+        ],
+        "overlap": 0.6396761133603239,
+        "mean_spread_rule": 0.054094429704650324,
+        "mean_spread_all": 0.0363749915642517
       }
     }
+  },
+  "rule": {
+    "test": {
+      "n_train": 1257,
+      "pos_train": 37,
+      "n_test": 623,
+      "pos_test": 22,
+      "stack_coef": [
+        0.8518220404015718,
+        1.8370267627359957,
+        0.002692899641905914
+      ],
+      "market_coef": [
+        2.0282938677491935,
+        0.18051362148376487
+      ],
+      "rule_q": 0.4,
+      "rule_threshold": 0.38719894592916604,
+      "rule_train_gain": 0.017695440221903946
+    },
+    "pooled_q": [
+      0.5,
+      0.45,
+      0.4,
+      0.5,
+      0.35,
+      0.5,
+      0.4,
+      0.45,
+      0.5,
+      0.5,
+      0.5,
+      0.5,
+      0.5
+    ]
   }
 }

@@ -489,7 +489,7 @@ def write_reports(D, out, keep, res, synthetic, final_tab, final):
             A.append(f"| {F.GROUP_LABELS[g]} | {fmt_ci(a['metrics'][f'only {g}']['roc_auc'], a['ci95'][f'only {g}']['roc_auc'])} | "
                      f"{fmt_ci(a['metrics'][f'without {g}']['roc_auc'], a['ci95'][f'without {g}']['roc_auc'])} | {d['point']:+.3f} [{d['ci95'][0]:+.3f}, {d['ci95'][1]:+.3f}] |")
         A += ["", f"All groups together: AUC {fmt_ci(allm, a['ci95']['all groups']['roc_auc'])}.",
-              "The market-spread group is dated t1 (up to a month after announcement) and is evaluated separately on the price-covered subset in `results/market_benchmark.md`.", ""]
+              "The market-spread group is dated t1 (one trading day after the announcement with CRSP daily prices) and is evaluated separately on the price-covered subset in `results/market_benchmark.md`.", ""]
         (res / "ablation.md").write_text("\n".join(A) + "\n")
     # ---- rolling origin
     if ex.get("rolling_origin"):

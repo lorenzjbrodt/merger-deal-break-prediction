@@ -15,5 +15,5 @@ Text subset, core sample, adverse-break target (test: 975 deals, 35 adverse brea
 | LLM-extracted terms | 0.596 [0.499, 0.688] | 0.592 [0.499, 0.679] | -0.001 [-0.020, +0.018] |
 
 All groups together: AUC 0.591 [0.499, 0.676].
-The market-spread group is dated t1 (up to a month after announcement) and is evaluated separately on the price-covered subset in `results/market_benchmark.md`.
+The market-spread group is dated t1 (one trading day after the announcement with CRSP daily prices) and is evaluated separately on the price-covered subset in `results/market_benchmark.md`.
 

@@ -17,3 +17,6 @@ results_synthetic/
 figures_synthetic/
 data/external/
 artifacts/
+
+# WRDS pulls (CRSP, Compustat): licensed, never commit
+data/wrds/

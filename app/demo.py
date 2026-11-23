@@ -1,4 +1,4 @@
-"""Local demo: break risk for a signed M&A deal.
+"""Local demo: break risk and the underwriting view (time to closing, loss if it breaks, expected annualized return) for a signed M&A deal.
 
     streamlit run app/demo.py
 
@@ -87,6 +87,20 @@ def headline(p: float, pct: float, base: float, p_mkt):
     c4.metric("Base rate (training period)", f"{base:.1%}")
 
 
+def underwriting(u, spread):
+    """Second row: the three numbers an arbitrageur underwrites and the expected annualized return they imply."""
+    if not u:
+        st.caption("Underwriting view (time to closing, loss if it breaks, expected annualized return): not available for this deal or in the synthetic fallback.")
+        return
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Expected time to closing", "n/a" if u["days"] is None else f"{u['days']:.0f} days",
+              "" if u["days_lo"] is None else f"80% interval {u['days_lo']:.0f} to {u['days_hi']:.0f} days", delta_color="off")
+    c2.metric("Expected loss if it breaks", "n/a" if u["loss"] is None else f"{u['loss']:.0%}", "target return from the day-1 close", delta_color="off")
+    c3.metric("Expected annualized return", "n/a" if u["ear"] is None else f"{u['ear']:.1%}",
+              "all-cash deals with a CRSP price only" if u["ear"] is None else ("day-1 spread n/a" if spread is None else f"day-1 spread {spread:.1%}"), delta_color="off")
+    c4.metric("Rank by expected annualized return", "n/a" if u["ear_pct"] is None else f"{u['ear_pct']:.0%}", "share of test-period deals ranked lower", delta_color="off")
+
+
 art = load()
 st.title("Will this deal close? Break risk at announcement")
 if art["synthetic"]:
@@ -106,8 +120,9 @@ if mode == "Pick a test-period deal":
     st.subheader(f"{d['target']}  <-  {d['buyer'][:90]}")
     st.write(f"Announced {d['announced']} | deal value ${d['deal_value']:,.0f}m | consideration: {d['consideration']}"
              + ("" if d["premium_1d"] is None else f" | premium {d['premium_1d']:.0f}%")
-             + ("" if d["spread"] is None else f" | spread at first monthly mark {d['spread']:.1%}"))
+             + ("" if d["spread"] is None else f" | {'day-1 spread' if art.get('price_source') == 'CRSP daily' else 'spread at first monthly mark'} {d['spread']:.1%}"))
     headline(d["score"], d["percentile"], art["base_rate"], d["p_mkt"])
+    underwriting(d.get("underwriting"), d["spread"])
     if show:
         out = {"closed": "The deal closed.", "topped": "The deal was topped by a higher bid.", "adverse_break": "The deal broke."}[d["outcome"]]
         (st.error if d["outcome"] == "adverse_break" else st.success)(f"Outcome: {out}")

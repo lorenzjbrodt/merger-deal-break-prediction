@@ -251,3 +251,77 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
 77. **Final model.** CV on the training years selected the extended tabular model (3x) over the variants with market
     context or text; that choice is reported as made, although the full-sample text variant (5f) scored slightly higher
     on the test set.
+
+## WRDS add-on (CRSP daily prices)
+
+78. **Connection.** WRDS PostgreSQL through `psycopg` (host `wrds-pgdata.wharton.upenn.edu`, port 9737). The password
+    lives only in `~/.pgpass`, typed by the account holder at a hidden prompt; the code reads the user name from that
+    file or from `WRDS_USER`. WRDS refused the first connections with "PAM authentication failed" until the stored
+    password was corrected; after a website login from the same network no Duo prompt was needed.
+79. **Everything pulled once and cached.** Because the two-factor session is tied to the IP address, all WRDS data,
+    including what later steps need (one extra year of target returns, Compustat annual sales, the daily market
+    return), was pulled into `data/wrds/` in one sitting. Nothing after that needs the connection.
+80. **CRSP format.** The current-format daily file `crsp.dsf_v2` is used because it runs to 31 December 2025; the
+    legacy `crsp.dsf` stops at 31 December 2024. In this format the delisting return and the delisting payment sit on a
+    final row of the daily file, so "hold to the last trading day including the delisting return" is the product of
+    the daily returns through that row.
+81. **Target link.** As specified: CIK -> gvkey (`comp.company`) -> permno through the CCM link valid on the
+    announcement date (link types LU, LC, LS; primary links preferred). Fallbacks: ticker and date in the CRSP names
+    history (the export shows a ticker for only 129 targets, so this adds 4 links), then, as an addition, an exact
+    normalised name match against CRSP issuer names valid on the announcement date or Compustat names with a valid CCM
+    link, unique matches only (258 links). Every link is checked against the export: the CRSP close before the
+    announcement must be within 15% of offer / (1 + one-day premium).
+82. **Acquirer link.** The export shows the buyer's current ticker, and none for buyers that were later delisted. A
+    ticker match on the announcement date is accepted only if the CRSP issuer name resembles the buyer name (tickers
+    are reused); otherwise any security that ever carried the ticker, resembles the name and traded on the date; then
+    exact name matches through CRSP and Compustat (short and legal names). The name routes roughly doubled the number
+    of linked acquirers of stock and mixed deals.
+83. **Second price source.** The brief said to keep the Capital IQ monthly closes for deals beyond the end of CRSP.
+    The same WRDS account also has Compustat daily prices to November 2026, which are daily and keyed by gvkey, so the
+    order is: CRSP; Compustat daily where a CRSP series stops without a delisting record or a target has no permno;
+    Capital IQ monthly close only as the last resort for the exit of a broken deal. Counts by source are in
+    `results/crsp_prices.md`.
+84. **Day-1 definitions.** As specified: P0 = close on the last trading day before the announcement date, t1 = first
+    trading day after it, entry at close(t1), and the deal must still be open at t1.
+85. **The export's offer is the final offer.** Capital IQ stores final terms. For deals whose price was raised later,
+    final offer / close(t1) looked like a spread of 30% or more that nobody could have earned as a spread, and it made
+    the market-implied probability wrong in the direction that hurts the market benchmark. For cash deals the per-share
+    price stated in the announcement press release is therefore used at t1 when it differs from the export by more than
+    1% and implies a premium between -30% and +200% over P0. Deals without announcement text keep the export's offer;
+    a panel restricted to the offers confirmed by or taken from the press release is reported as robustness.
+86. **Exits.** Completed deals: CRSP total return through the delisting record. Where there is no delisting record
+    near the closing date (CRSP ends, or the security kept trading), cash deals are paid the offer on the closing date
+    and stock or mixed deals exit at the close on that date. Broken deals: close of the first trading day after the
+    cancellation date, and five trading days after it as the variant.
+87. **Stock and mixed deals** (robustness only): exchange ratio = stock part of the export's offer per share divided
+    by the acquirer's close before the announcement; everything that is not stock is treated as a fixed amount. This
+    assumes a fixed ratio and that the export struck the offer value at that close. No acquirer hedge is modelled.
+88. **Pooled out-of-time design.** One origin per test year from 2013 to 2025; a model for year Y is fitted on deals
+    announced by Y-1. Hyper-parameters, the one rule, the use of the year and the choice among the three tabular
+    feature sets are re-selected by CV inside each origin's training years, so nothing chosen on 2001-2018 as a whole
+    leaks into the earlier test years. The fine-tuned encoder is left out (it was trained on data up to 2015).
+89. **Pending deals in training.** A model for year Y trains on deals announced by Y-1 whose outcome may have become
+    known during Y, the same convention as the main split. An embargo variant that trains on deals announced by Y-2 is
+    reported to show that this does not drive the result.
+90. **Intervals for pooled results** resample announcement years (13 clusters), as requested. With 13 clusters the
+    percentile interval is itself rough, so the deal-level interval is printed next to it, and a within-year AUC is
+    reported because scores from 13 different fitted models are pooled.
+91. **Market side of the comparison.** The market logistic, the stack and the model-versus-market threshold are fitted
+    on earlier years only, per origin in the pooled set. The threshold is the training-period quantile of the gap
+    between model and market (in log-odds) that gave the best training-period annual return among eleven candidates
+    (skip 0% to 50%); "skip nothing" is allowed to win.
+92. **"Riskiest 10%"** is ranked within the test period for the 2019-2025 set (as before) and within each announcement
+    year for the pooled set.
+93. **Day-1 ladder step.** Final model plus day-1 spread, p_mkt, p_mkt with carry and days to t1, same
+    hyper-parameters, reported in its own section of the benchmark table and never compared as a like-for-like step
+    with the announcement-date models.
+94. **Monthly analysis kept as the fallback.** `src/price_analysis.py` and `src/backtest.py` still run on the Capital
+    IQ monthly closes and now write to `results/monthly/`; the headline files `results/market_benchmark.md` and
+    `results/backtest.md` come from the daily data.
+95. **Model-free reference for the rule.** The model-versus-market rule beat hold-all, but the deals it keeps have wider
+    spreads than average, and wide spreads earned more in this sample. A reference rule was therefore added after seeing
+    that result: hold the same number of deals, chosen by the market-implied risk alone. The model's contribution is the
+    rule minus that reference, and its interval includes zero.
+96. **Bootstrap for the market comparison** covers the pooled and the within-year ROC AUC only (rank-based, fast). The
+    within-year interval is shown because scores refitted every year (market logistic, stack) are not on one scale across
+    years, which lowers their pooled AUC; `p_mkt` and the raw spread do not have that problem.

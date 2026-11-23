@@ -1,81 +1,161 @@
-# Backtest on Capital IQ monthly closes (headline impact)
+# Backtest with daily marks (headline impact)
 
-Test period 2019-2025, core sample. Entry: target close at t1, the first monthly grid date (the 20th) after the announcement. Exit: the offer price on the closing date for completed all-cash deals; the first grid close after the cancellation date for broken deals. Equal weights. Annual return = total P&L divided by total capital-years (each deal ties up one unit of capital for its holding period), so `$ per $100 million per year` assumes the capital is continuously redeployed into deals of the same kind.
+Core sample, CRSP daily prices. Entry: target close on t1, the first trading day after the announcement. Completed deals are held to the last trading day and earn CRSP total returns including dividends and the delisting return (the cash paid at closing). Broken deals are sold at the close of the first trading day after the cancellation date; a variant sells five trading days after it. Equal weights. Annual return = total P&L divided by total capital-years, so `$ per $100 million per year` assumes the capital is continuously redeployed into deals of the same kind.
 
-**Limits.** Monthly marks only: entry is up to a month after the announcement (part of the spread is already gone and some early news is in the price), and broken deals are exited on the next grid date, not at the first print after the news. No transaction costs, dividends, financing cost, borrow or position limits. Deals without a usable price are missing (see `results/price_coverage.md`), and that loss is larger for broken deals. Model: lgbm_ext; scores from the model trained on 2001-2018.
+**Limits.** No transaction costs, no financing costs, no borrow, no position or capacity limits; every deal can be bought at the day-1 close in equal size. A few deals without announcement text keep the export's final offer in the spread (`results/crsp_prices.md`); this affects the spread-based rules, not the returns. Model: lgbm_ext for the test period, the same procedure refitted each year for the pooled set. "Riskiest 10%" ranks within the test period, and within each announcement year in the pooled set. Intervals: bootstrap over deals (test period) and over announcement years (pooled).
 
 ## All-cash deals (main)
 
-580 test deals with usable prices: 559 closed, 16 adverse breaks, 5 topped by a higher bid.
+### Test period 2019-2025
+
+623 deals: 595 closed, 22 adverse breaks, 6 topped by a higher bid. Hold-all annual return +6.8% [95% CI +3.8%, +9.7%].
 
 | Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| Hold all deals | 580 | 16 | 5 | +3.06% | 83 | +8.7% | +8.73 | reference |
-| Skip riskiest 10% by model | 522 | 15 | 4 | +3.26% | 78 | +9.6% | +9.60 | +0.87 [-0.25, +2.03] |
-| Skip riskiest 20% by model | 464 | 12 | 4 | +2.92% | 72 | +9.2% | +9.19 | +0.46 [-1.45, +2.52] |
-| Hold only if model probability < market-implied | 377 | 12 | 4 | +6.13% | 100 | +14.6% | +14.59 | +5.86 [+3.81, +8.00] |
-| Hold only if model risk percentile < market risk percentile | 286 | 8 | 2 | +6.96% | 88 | +18.2% | +18.16 | +9.43 [+6.21, +13.11] |
-| Reference: skip widest-spread 10% (market's own ranking) | 522 | 12 | 4 | +0.37% | 78 | +1.1% | +1.14 | -7.59 [-10.23, -5.11] |
+| Hold all deals | 623 | 22 | 6 | +2.62% | 92 | +6.8% | +6.76 | reference |
+| Skip riskiest 10% by model | 561 | 20 | 5 | +2.67% | 90 | +7.0% | +7.04 | +0.28 [-0.56, +1.41] |
+| Skip riskiest 20% by model | 498 | 16 | 4 | +2.42% | 86 | +6.8% | +6.78 | +0.01 [-1.92, +1.88] |
+| Model-versus-market rule (threshold from earlier years) | 335 | 10 | 2 | +4.39% | 89 | +11.1% | +11.10 | +4.34 [+1.64, +7.21] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 335 | 16 | 2 | +4.66% | 122 | +9.3% | +9.33 | +2.57 [+0.61, +4.56] |
+| Reference: skip the widest 10% of spreads | 561 | 16 | 5 | +1.18% | 89 | +3.4% | +3.38 | -3.38 [-5.30, -1.55] |
 
-Change vs hold-all is in $ million per $100 million per year (equivalently percentage points of annual return).
+Model-versus-market rule minus the model-free reference with the same number of deals: **+1.78 points [95% CI -0.32, +4.41]**; the two hold 61% of the same deals. Mean day-1 spread of the deals the rule holds: 5.9%, of all deals: 3.7%.
 
-By outcome (all usable deals):
+Per-deal returns by outcome:
 
-| Outcome | Deals | Mean return per deal | Median return | Worst | Median holding days | Mean model score | Mean p_mkt |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Closed | 559 | +4.4% | +1.7% | -44.6% | 79 | 0.040 | 0.19 |
-| Topped by a higher bid | 5 | +9.2% | +10.0% | -4.6% | 61 | 0.050 | 0.19 |
-| Adverse break | 16 | -44.9% | -48.3% | -79.8% | 396 | 0.044 | 0.31 |
+| Outcome | Deals | Mean return per deal | Median return | Worst | Best | Median holding days | Mean model score | Mean p_mkt |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Closed | 595 | +4.0% | +1.8% | -44.6% | +97.9% | 91 | 0.039 | 0.16 |
+| Topped by a higher bid | 6 | +16.2% | +15.7% | +3.5% | +33.8% | 68 | 0.053 | 0.10 |
+| Adverse break | 22 | -37.9% | -44.9% | -83.4% | +61.7% | 396 | 0.046 | 0.30 |
 
-## All considerations, including stock and mixed (robustness)
+### Pooled out-of-time 2013-2025
 
-911 test deals with usable prices: 869 closed, 28 adverse breaks, 14 topped by a higher bid.
-
-| Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
-|---|---:|---:|---:|---:|---:|---:|---:|---|
-| Hold all deals | 911 | 28 | 14 | +3.26% | 92 | +8.9% | +8.85 | reference |
-| Skip riskiest 10% by model | 820 | 25 | 11 | +3.23% | 92 | +8.8% | +8.80 | -0.05 [-1.89, +1.51] |
-| Skip riskiest 20% by model | 729 | 21 | 10 | +2.71% | 91 | +7.8% | +7.82 | -1.03 [-3.14, +1.37] |
-| Hold only if model probability < market-implied | 614 | 21 | 7 | +5.45% | 114 | +12.9% | +12.89 | +4.03 [+2.32, +5.86] |
-| Hold only if model risk percentile < market risk percentile | 458 | 12 | 5 | +5.77% | 101 | +14.7% | +14.68 | +5.83 [+2.86, +8.94] |
-| Reference: skip widest-spread 10% (market's own ranking) | 820 | 21 | 11 | +1.33% | 92 | +3.7% | +3.72 | -5.13 [-7.20, -3.13] |
-
-Change vs hold-all is in $ million per $100 million per year (equivalently percentage points of annual return).
-
-By outcome (all usable deals):
-
-| Outcome | Deals | Mean return per deal | Median return | Worst | Median holding days | Mean model score | Mean p_mkt |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Closed | 869 | +4.2% | +1.8% | -72.9% | 92 | 0.045 | 0.27 |
-| Topped by a higher bid | 14 | +14.1% | +13.9% | -4.6% | 61 | 0.061 | 0.23 |
-| Adverse break | 28 | -32.2% | -29.8% | -83.5% | 350 | 0.054 | 0.41 |
-
-## All-cash deals with an entry spread between -5% and +25% (robustness)
-
-533 test deals with usable prices: 516 closed, 13 adverse breaks, 4 topped by a higher bid.
+1205 deals: 1150 closed, 38 adverse breaks, 17 topped by a higher bid. Hold-all annual return +6.4% [95% CI +4.5%, +8.2%].
 
 | Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
 |---|---:|---:|---:|---:|---:|---:|---:|---|
-| Hold all deals | 533 | 13 | 4 | +2.09% | 79 | +6.2% | +6.19 | reference |
-| Skip riskiest 10% by model | 480 | 12 | 3 | +2.02% | 76 | +6.2% | +6.18 | -0.01 [-0.76, +1.12] |
-| Skip riskiest 20% by model | 426 | 10 | 3 | +1.86% | 72 | +6.1% | +6.06 | -0.13 [-1.39, +1.51] |
-| Hold only if model probability < market-implied | 350 | 11 | 3 | +3.39% | 100 | +8.3% | +8.27 | +2.08 [+1.08, +3.38] |
-| Hold only if model risk percentile < market risk percentile | 269 | 10 | 1 | +3.04% | 88 | +7.8% | +7.77 | +1.58 [-0.20, +3.67] |
-| Reference: skip widest-spread 10% (market's own ranking) | 480 | 8 | 4 | +1.12% | 75 | +3.6% | +3.63 | -2.56 [-4.16, -0.85] |
+| Hold all deals | 1205 | 38 | 17 | +2.27% | 88 | +6.4% | +6.35 | reference |
+| Skip riskiest 10% by model | 1085 | 32 | 16 | +2.39% | 85 | +7.0% | +7.02 | +0.67 [-0.10, +1.37] |
+| Skip riskiest 20% by model | 965 | 27 | 14 | +2.13% | 83 | +6.5% | +6.49 | +0.13 [-0.79, +1.10] |
+| Model-versus-market rule (threshold from earlier years) | 676 | 24 | 9 | +3.13% | 86 | +8.7% | +8.71 | +2.36 [+0.31, +4.64] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 676 | 33 | 6 | +3.55% | 110 | +7.9% | +7.88 | +1.53 [+0.42, +2.87] |
+| Reference: skip the widest 10% of spreads | 1085 | 24 | 16 | +1.15% | 84 | +3.5% | +3.54 | -2.81 [-4.24, -1.55] |
 
-Change vs hold-all is in $ million per $100 million per year (equivalently percentage points of annual return).
+Model-versus-market rule minus the model-free reference with the same number of deals: **+0.83 points [95% CI -0.99, +2.88]**; the two hold 65% of the same deals. Mean day-1 spread of the deals the rule holds: 4.0%, of all deals: 2.7%.
 
-By outcome (all usable deals):
+Per-deal returns by outcome:
 
-| Outcome | Deals | Mean return per deal | Median return | Worst | Median holding days | Mean model score | Mean p_mkt |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Closed | 516 | +3.2% | +1.7% | -5.0% | 78 | 0.040 | 0.17 |
-| Topped by a higher bid | 4 | +6.5% | +7.9% | -4.6% | 61 | 0.056 | 0.12 |
-| Adverse break | 13 | -42.5% | -44.5% | -72.7% | 365 | 0.042 | 0.30 |
+| Outcome | Deals | Mean return per deal | Median return | Worst | Best | Median holding days | Mean model score | Mean p_mkt |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Closed | 1150 | +3.2% | +1.4% | -44.6% | +97.9% | 88 | 0.030 | 0.13 |
+| Topped by a higher bid | 17 | +14.6% | +14.2% | +3.5% | +33.8% | 58 | 0.027 | 0.10 |
+| Adverse break | 38 | -31.2% | -28.9% | -83.4% | +61.7% | 360 | 0.036 | 0.34 |
 
-This panel was added after the first backtest showed that a few deals with very wide entry spreads dominate the averages. A spread above 25% on a cash deal is either a genuinely distressed situation or a mismatch between the exported offer and the price series (revised offers, contingent consideration); a negative spread below -5% means the market expected a higher bid. Neither can be told apart from the export, so both panels are shown.
+## All-cash deals with a day-1 spread between -5% and +25%
 
-**How to read the model-versus-market rows.** `p_mkt` is not calibrated: it averages about 0.19 for deals that closed, several times the actual break rate, because part of every spread is time value and compensation for risk. The rule "model probability below market-implied" therefore mostly selects deals with wide spreads, and its return comes from holding those, not from the model. The percentile version compares ranks instead of levels and is the fairer test.
+### Test period 2019-2025
 
-For stock and mixed deals the exit for completed deals is the last available close before delisting and the spread uses the exported offer value per share, which moves with the acquirer's share price; no hedge of the acquirer leg is modelled. Treat that panel as a rough check only.
+580 deals: 557 closed, 18 adverse breaks, 5 topped by a higher bid. Hold-all annual return +4.5% [95% CI +1.9%, +6.9%].
+
+| Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Hold all deals | 580 | 18 | 5 | +1.70% | 92 | +4.5% | +4.52 | reference |
+| Skip riskiest 10% by model | 522 | 16 | 4 | +1.69% | 90 | +4.6% | +4.60 | +0.08 [-0.79, +1.26] |
+| Skip riskiest 20% by model | 464 | 14 | 4 | +1.50% | 86 | +4.2% | +4.23 | -0.29 [-1.55, +1.28] |
+| Model-versus-market rule (threshold from earlier years) | 308 | 6 | 2 | +3.13% | 86 | +8.3% | +8.29 | +3.77 [+1.38, +6.21] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 308 | 12 | 2 | +3.17% | 122 | +6.6% | +6.56 | +2.04 [+0.35, +3.97] |
+| Reference: skip the widest 10% of spreads | 522 | 13 | 4 | +0.98% | 89 | +2.9% | +2.94 | -1.58 [-3.12, -0.02] |
+
+Model-versus-market rule minus the model-free reference with the same number of deals: **+1.73 points [95% CI -0.50, +3.96]**; the two hold 59% of the same deals. Mean day-1 spread of the deals the rule holds: 3.6%, of all deals: 2.7%.
+
+### Pooled out-of-time 2013-2025
+
+1144 deals: 1097 closed, 34 adverse breaks, 13 topped by a higher bid. Hold-all annual return +4.7% [95% CI +3.3%, +5.9%].
+
+| Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Hold all deals | 1144 | 34 | 13 | +1.66% | 88 | +4.7% | +4.73 | reference |
+| Skip riskiest 10% by model | 1029 | 29 | 12 | +1.74% | 86 | +5.1% | +5.14 | +0.41 [-0.13, +1.00] |
+| Skip riskiest 20% by model | 916 | 25 | 11 | +1.65% | 83 | +5.1% | +5.09 | +0.36 [-0.65, +1.32] |
+| Model-versus-market rule (threshold from earlier years) | 643 | 20 | 8 | +2.19% | 84 | +6.3% | +6.31 | +1.58 [-0.43, +3.89] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 643 | 28 | 6 | +2.51% | 109 | +5.8% | +5.77 | +1.03 [+0.17, +1.97] |
+| Reference: skip the widest 10% of spreads | 1029 | 21 | 11 | +1.11% | 83 | +3.6% | +3.56 | -1.17 [-2.16, -0.22] |
+
+Model-versus-market rule minus the model-free reference with the same number of deals: **+0.54 points [95% CI -1.28, +2.68]**; the two hold 63% of the same deals. Mean day-1 spread of the deals the rule holds: 2.5%, of all deals: 2.1%.
+
+## All-cash deals, broken deals sold five trading days after the cancellation date
+
+### Test period 2019-2025
+
+623 deals: 595 closed, 22 adverse breaks, 6 topped by a higher bid. Hold-all annual return +6.5% [95% CI +3.5%, +9.5%].
+
+| Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Hold all deals | 623 | 22 | 6 | +2.53% | 92 | +6.5% | +6.52 | reference |
+| Skip riskiest 10% by model | 561 | 20 | 5 | +2.55% | 90 | +6.7% | +6.71 | +0.20 [-0.62, +1.31] |
+| Skip riskiest 20% by model | 498 | 16 | 4 | +2.29% | 87 | +6.4% | +6.40 | -0.11 [-2.05, +1.81] |
+| Model-versus-market rule (threshold from earlier years) | 335 | 10 | 2 | +4.26% | 89 | +10.8% | +10.76 | +4.25 [+1.53, +7.17] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 335 | 16 | 2 | +4.48% | 122 | +8.9% | +8.94 | +2.43 [+0.45, +4.41] |
+| Reference: skip the widest 10% of spreads | 561 | 16 | 5 | +1.11% | 89 | +3.2% | +3.19 | -3.33 [-5.25, -1.47] |
+
+Model-versus-market rule minus the model-free reference with the same number of deals: **+1.82 points [95% CI -0.34, +4.50]**; the two hold 61% of the same deals. Mean day-1 spread of the deals the rule holds: 5.9%, of all deals: 3.7%.
+
+### Pooled out-of-time 2013-2025
+
+1205 deals: 1150 closed, 38 adverse breaks, 17 topped by a higher bid. Hold-all annual return +6.2% [95% CI +4.4%, +8.0%].
+
+| Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Hold all deals | 1205 | 38 | 17 | +2.23% | 88 | +6.2% | +6.22 | reference |
+| Skip riskiest 10% by model | 1085 | 32 | 16 | +2.34% | 86 | +6.9% | +6.86 | +0.64 [-0.12, +1.31] |
+| Skip riskiest 20% by model | 965 | 27 | 14 | +2.09% | 83 | +6.3% | +6.34 | +0.12 [-0.79, +1.08] |
+| Model-versus-market rule (threshold from earlier years) | 676 | 24 | 9 | +3.08% | 86 | +8.6% | +8.57 | +2.34 [+0.26, +4.70] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 676 | 33 | 6 | +3.45% | 110 | +7.6% | +7.64 | +1.42 [+0.27, +2.76] |
+| Reference: skip the widest 10% of spreads | 1085 | 24 | 16 | +1.12% | 84 | +3.4% | +3.44 | -2.78 [-4.25, -1.48] |
+
+Model-versus-market rule minus the model-free reference with the same number of deals: **+0.93 points [95% CI -0.95, +3.08]**; the two hold 65% of the same deals. Mean day-1 spread of the deals the rule holds: 4.0%, of all deals: 2.7%.
+
+## All considerations, including stock and mixed deals, unhedged (robustness)
+
+### Test period 2019-2025
+
+902 deals: 857 closed, 31 adverse breaks, 14 topped by a higher bid. Hold-all annual return +9.3% [95% CI +6.3%, +12.3%].
+
+| Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Hold all deals | 902 | 31 | 14 | +3.85% | 109 | +9.3% | +9.29 | reference |
+| Skip riskiest 10% by model | 812 | 28 | 13 | +3.80% | 106 | +9.3% | +9.28 | -0.01 [-1.51, +1.45] |
+| Skip riskiest 20% by model | 722 | 22 | 10 | +3.64% | 103 | +9.4% | +9.37 | +0.08 [-1.83, +2.15] |
+| Model-versus-market rule (threshold from earlier years) | 405 | 13 | 3 | +6.18% | 111 | +14.2% | +14.21 | +4.92 [+1.71, +8.03] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 405 | 17 | 4 | +7.11% | 153 | +12.9% | +12.86 | +3.56 [+1.03, +6.17] |
+| Reference: skip the widest 10% of spreads | 812 | 24 | 13 | +2.50% | 104 | +6.5% | +6.50 | -2.79 [-4.34, -1.28] |
+
+Model-versus-market rule minus the model-free reference with the same number of deals: **+1.35 points [95% CI -1.38, +3.93]**; the two hold 60% of the same deals. Mean day-1 spread of the deals the rule holds: 7.6%, of all deals: 4.3%.
+
+### Pooled out-of-time 2013-2025
+
+1811 deals: 1722 closed, 61 adverse breaks, 28 topped by a higher bid. Hold-all annual return +8.9% [95% CI +5.9%, +11.5%].
+
+| Strategy | Deals held | Adverse breaks held | Topped held | Mean return per deal | Median holding days | Annual return | $ million per $100 million per year | Change vs hold-all [95% CI] |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Hold all deals | 1811 | 61 | 28 | +3.56% | 109 | +8.9% | +8.86 | reference |
+| Skip riskiest 10% by model | 1631 | 52 | 26 | +3.75% | 107 | +9.6% | +9.60 | +0.74 [-0.31, +1.81] |
+| Skip riskiest 20% by model | 1449 | 45 | 22 | +3.57% | 103 | +9.5% | +9.52 | +0.67 [-0.42, +1.82] |
+| Model-versus-market rule (threshold from earlier years) | 988 | 39 | 12 | +4.63% | 107 | +11.4% | +11.36 | +2.50 [+0.72, +4.43] |
+| Reference: same number of deals, highest market-implied risk first (no model) | 988 | 47 | 11 | +5.79% | 144 | +11.4% | +11.37 | +2.52 [+1.76, +3.35] |
+| Reference: skip the widest 10% of spreads | 1631 | 43 | 25 | +2.30% | 104 | +6.2% | +6.25 | -2.61 [-3.46, -1.79] |
+
+Model-versus-market rule minus the model-free reference with the same number of deals: **-0.02 points [95% CI -1.47, +1.50]**; the two hold 64% of the same deals. Mean day-1 spread of the deals the rule holds: 5.4%, of all deals: 3.6%.
+
+## The model-versus-market rule
+
+The rule skips a deal when the calibrated model probability exceeds the market logistic by more than a threshold (in log-odds). The threshold is the training-period quantile that maximised the training-period annual return, searched over skipping 0% to 50% of deals in steps of 5 points.
+
+- Test period: the training years chose to skip the top 40% of deals by that gap (training-period gain +1.77 points a year).
+- Pooled set: the chosen share varies by origin year: 50%, 45%, 40%, 50%, 35%, 50%, 40%, 45%, 50%, 50%, 50%, 50%, 50%.
+
+A threshold picked as the best of eleven candidates on a few dozen training breaks is itself noisy; read the row as a test of the procedure, not of one cut-off.
+
+**The rule is mostly a bet on wide spreads.** Deals where the model sees less risk than the market are, almost by construction, deals with wide spreads, and wide spreads earned more than narrow ones in this sample (see the reference row that skips the widest 10%). The fair test of the model is therefore the line under each table that compares the rule with a model-free rule holding the same number of deals, chosen by the market-implied risk alone.
 

@@ -19,3 +19,5 @@ tqdm==4.70.1
 accelerate==1.16.0
 streamlit==1.67.0
 playwright==1.65.2   # then: python -m playwright install chromium (demo screenshots only)
+# WRDS add-on (optional: only needed to pull CRSP / Compustat)
+psycopg[binary]==3.3.9

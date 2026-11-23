@@ -7,7 +7,8 @@ Writes artifacts/demo/demo.pkl (git-ignored: it holds deal-level rows). Two mode
 
 Contents
   deals      test-period deals with terms, model score, percentile, market-implied probability,
-             top drivers (SHAP), extracted terms and the opening of the press release
+             top drivers (SHAP), extracted terms, the opening of the press release, and the underwriting
+             view (expected time to closing with an 80% interval, loss if it breaks, expected annualized return)
   compact    a small LightGBM on terms a user can type in, plus keyword flags from pasted text,
              used for the "enter your own deal" mode (clearly weaker than the full model)
   similar    TF-IDF index of historical broken deals for "most similar broken deals"
@@ -108,6 +109,24 @@ def build(synthetic: bool) -> Path:
             pos = {d: i for i, d in enumerate(sh["deal_id"])}
             drivers = {"names": sh["names"], "pos": pos, "contrib": sh["contrib"], "values": sh["values"], "model": ftab}
 
+    # underwriting view (real data only): time to closing with an 80% interval, loss if it breaks, expected annualized return
+    uw = {}
+    if not synthetic and (M.INTERIM / "duration.pkl").exists():
+        du = pickle.load(open(M.INTERIM / "duration.pkl", "rb"))["pred"].set_index("deal_id")
+        lo = pd.read_parquet(M.INTERIM / "loss_oot.parquet").set_index("deal_id") if (M.INTERIM / "loss_oot.parquet").exists() else None
+        er = pd.read_parquet(M.INTERIM / "expected_return.parquet").set_index("deal_id") if (M.INTERIM / "expected_return.parquet").exists() else None
+        ear_all = er["test__ear"].dropna().to_numpy() if er is not None else np.array([])
+
+        def num(frame, did, col, f=lambda v: v):
+            if frame is None or did not in frame.index or col not in frame or pd.isna(frame.at[did, col]):
+                return None
+            return float(f(frame.at[did, col]))
+        for did in D.deals["deal_id"].iloc[te]:
+            e = num(er, did, "test__ear")
+            uw[did] = {"days": num(du, did, "split__full__final", np.exp), "days_lo": num(du, did, "split__full__final_q10", np.exp),
+                       "days_hi": num(du, did, "split__full__final_q90", np.exp), "loss": num(lo, did, "split__adverse"),
+                       "ear": e, "exp_ret": num(er, did, "test__exp_ret"), "p_top": num(er, did, "test__p_top"),
+                       "ear_pct": None if e is None or not len(ear_all) else float((ear_all < e).mean())}
     d = D.deals.iloc[te]
     rows = []
     llm_dir = M.INTERIM / "llm_extract/out/haiku"
@@ -137,7 +156,7 @@ def build(synthetic: bool) -> Path:
             "spread": None if pf is None or pd.isna(pf["spread"]) or not bool(pf["backtest_ok"]) else float(pf["spread"]),
             "outcome": str(D.outcome3[i]), "drivers": [(nm[t], None if not np.isfinite(v[t]) else float(v[t]), float(c[t])) for t in top],
             "terms": terms, "press": (D.press[i][:1800] if D.press is not None and D.has_text[i] else ""),
-            "compact_row": A_te[j].astype(float).tolist(),
+            "compact_row": A_te[j].astype(float).tolist(), "underwriting": uw.get(r["deal_id"]),
         })
     # similarity index over historical broken deals (training period)
     similar = None
@@ -152,7 +171,7 @@ def build(synthetic: bool) -> Path:
                                  "reason": str(D.deals["reason"].iloc[i])} for i in broke]}
     art = {"synthetic": synthetic, "source": source, "deals": rows, "compact": compact, "history": np.sort(hist).astype(np.float32),
            "history_compact": np.sort(hist_compact).astype(np.float32), "similar": similar, "base_rate": float(y[tr].mean()),
-           "compact_medians": np.nanmedian(A_tr, axis=0).tolist()}
+           "compact_medians": np.nanmedian(A_tr, axis=0).tolist(), "price_source": getattr(D, "pf_source", "")}
     OUT.mkdir(parents=True, exist_ok=True)
     path = OUT / ("demo_synthetic.pkl" if synthetic else "demo.pkl")
     with open(path, "wb") as fh:

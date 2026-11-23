@@ -204,3 +204,17 @@ One-rule benchmark chosen by CV: "any stock in consideration".
 
 Final models (chosen by CV AUC on the training years, primary run, full sample): tabular = 3x. LightGBM + extended deal, buyer and target features; overall = 3x. LightGBM + extended deal, buyer and target features.
 
+## Different decision time: day 1 after announcement
+
+**Not comparable with the rows above as a like-for-like model step.** The models above decide on the announcement date. This step adds what the market shows one trading day later (day-1 spread, `p_mkt`, `p_mkt` with carry, days to t1) to the final model's features; deals without a usable price keep missing values. Hyper-parameters are those of the final model.
+
+| Evaluation set | Deals | Adverse breaks | Final model, announcement date | Final model + day-1 market features | Difference [95% CI] | Day-1 model minus p_mkt [95% CI] |
+|---|---:|---:|---:|---:|---|---|
+| Test 2019-2025, all core deals | 1083 | 40 | 0.633 | 0.636 [0.552, 0.717] | +0.002 [-0.056, +0.072] | n/a |
+| Test 2019-2025, priced all-cash deals | 623 | 22 | 0.632 | 0.646 [0.549, 0.739] | +0.015 [-0.076, +0.117] | +0.004 [-0.093, +0.111] |
+| Pooled out-of-time 2013-2025, all core deals | 2176 | 84 | 0.609 | 0.655 [0.596, 0.717] | +0.046 [+0.006, +0.082] | n/a |
+| Pooled out-of-time 2013-2025, priced all-cash deals | 1205 | 38 | 0.599 | 0.661 [0.544, 0.752] | +0.062 [+0.010, +0.118] | -0.060 [-0.192, +0.036] |
+
+Intervals resample deals for the test period and announcement years for the pooled set.
+
+Details and the comparison with the market: `results/market_benchmark.md`.

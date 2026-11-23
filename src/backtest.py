@@ -1,4 +1,8 @@
-"""Market benchmark and price-based backtest on the test period (2019-2025).
+"""Market benchmark and price-based backtest on Capital IQ MONTHLY closes, test period 2019-2025.
+
+This is the documented fallback that runs without WRDS. With CRSP daily data the headline versions are
+produced by src/daily_eval.py (results/market_benchmark.md, results/backtest.md); this script writes to
+results/monthly/ and figures/monthly_*.png.
 
 Part 1 - does the model add information beyond the market?
   On test deals with a usable price, compare the market-implied break probability p_mkt
@@ -61,8 +65,9 @@ def portfolio(ret, hold, w=None):
 
 
 def main() -> None:
-    res = ROOT / "results"; fig = ROOT / "figures"
-    Mj = json.loads((res / "metrics.json").read_text())
+    res0 = ROOT / "results"; res = res0 / "monthly"; fig = ROOT / "figures"
+    res.mkdir(exist_ok=True)
+    Mj = json.loads((res0 / "metrics.json").read_text())
     final = Mj["final_models"]["overall"]
     P = pd.read_parquet(INTERIM / "predictions.parquet").merge(pd.read_parquet(INTERIM / "price_features.parquet"), on="deal_id", how="left")
     rng = np.random.default_rng(0)
@@ -70,7 +75,9 @@ def main() -> None:
     P["model"] = P[pcol]
     P["model_cal"] = P[ccol] if ccol in P else P[pcol]
     out = {"final_model": final}
-    MB = ["# Market benchmark: does the model add information beyond the market?", "",
+    MB = ["# Market benchmark on monthly closes (fallback without CRSP)", "",
+          "The headline version uses CRSP daily prices: `results/market_benchmark.md`. This file is what the repository produces from the Capital IQ monthly closes alone. "
+          "It uses the export's final offer, so later price increases inflate some spreads (see `results/crsp_prices.md`).", "",
           f"Model: {final} (announcement-date features only; trained on 2001-2018). Market: `p_mkt` = (offer - close(t1)) / (offer - P0), the share of the "
           "premium the market has not yet paid, where t1 is the first monthly grid date after the announcement and P0 the price one day before it. "
           "`p_mkt` ignores time value and assumes a broken deal falls back to exactly P0; `p_mkt_carry` discounts the offer at the 3-month T-bill rate "
@@ -125,7 +132,8 @@ def main() -> None:
     (res / "market_benchmark.md").write_text("\n".join(MB) + "\n")
 
     # ------------------------------------------------------------------ backtest
-    BT = ["# Backtest on Capital IQ monthly closes (headline impact)", "",
+    BT = ["# Backtest on Capital IQ monthly closes (fallback without CRSP)", "",
+          "The headline version uses CRSP daily prices: `results/backtest.md`.", "",
           "Test period 2019-2025, core sample. Entry: target close at t1, the first monthly grid date (the 20th) after the announcement. Exit: the offer price on the closing "
           "date for completed all-cash deals; the first grid close after the cancellation date for broken deals. Equal weights. "
           "Annual return = total P&L divided by total capital-years (each deal ties up one unit of capital for its holding period), "
@@ -243,7 +251,7 @@ def main() -> None:
             ax.set_title(f"{title}\nhold-all: {base['annual_return']:.1%} a year, {base['held']} deals, {base['adverse_held']} adverse breaks", loc="left", fontsize=9)
         f_.suptitle("Backtest on monthly closes, all-cash deals, test 2019-2025, before costs", x=0.01, ha="left", fontsize=10)
         f_.tight_layout()
-        f_.savefig(fig / "backtest.png"); plt.close(f_)
+        f_.savefig(fig / "monthly_backtest.png"); plt.close(f_)
 
         f_, ax = plt.subplots(figsize=(5.4, 4.6))
         colors = {"closed": "#9ecae1", "topped": "#31a354", "adverse_break": "#de2d26"}
@@ -255,7 +263,7 @@ def main() -> None:
         ax.plot([0, 1], [0, 1], color="#9e9e9e", ls="--", lw=1)
         ax.set(xlabel="Market-implied break probability p_mkt (at t1)", ylabel="Model probability of an adverse break (calibrated)", xlim=(-0.02, 1.02), ylim=(0, max(lim, 0.2)))
         ax.legend(fontsize=8, frameon=False); ax.set_title("Model versus market, all-cash test deals", loc="left", fontsize=10)
-        f_.savefig(fig / "model_vs_market.png"); plt.close(f_)
+        f_.savefig(fig / "monthly_model_vs_market.png"); plt.close(f_)
     print("\n".join(MB[-30:])); print("\n".join(BT[5:40]))
 
 

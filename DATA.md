@@ -199,10 +199,64 @@ Two series do not go back far enough on FRED and are replaced by proxies:
 
 ## 4. LLM outputs (derived, cached locally)
 
-Term extraction, break-reason classification and the exploratory zero-shot score are produced with headless Claude Code
+Term extraction, break-reason classification, the parties' stated expected closing and the exploratory zero-shot score are produced with headless Claude Code
 (`claude -p`) and cached per document under `data/interim/` (git-ignored). Only aggregate validation tables are committed.
 
-## 5. Synthetic sample (included)
+## 5. WRDS: CRSP and Compustat (licensed, not included)
+
+Daily prices, the day-1 spread, the daily backtest, the loss-if-break model and the overlap features use CRSP and
+Compustat through the WRDS PostgreSQL server. Nothing from WRDS is committed: the pull is cached in `data/wrds/`
+(git-ignored) and only aggregate tables appear in `results/`. Without WRDS the repository still runs: the Capital IQ
+monthly closes produce `results/monthly/` (documented fallback).
+
+### One-off setup
+
+1. A WRDS account with CRSP and Compustat access. Log in once on <https://wrds-www.wharton.upenn.edu/> from the network
+   you will pull from: WRDS ties its two-factor (Duo) session to the IP address for up to 30 days, and a database
+   connection from an address without a session is refused.
+2. Store the password where the PostgreSQL client reads it (`~/.pgpass`, mode 600). This asks for it with hidden input
+   and never puts it on the command line or in the repo; replace `YOUR_WRDS_USER`:
+
+```bash
+.venv/bin/python -c 'import getpass,os,pathlib; u="YOUR_WRDS_USER"; f=pathlib.Path.home()/".pgpass"; h="wrds-pgdata.wharton.upenn.edu:9737:wrds:"+u+":"; p=getpass.getpass("WRDS password (hidden): ").replace("\\","\\\\").replace(":","\\:"); keep=[l for l in (f.read_text().splitlines() if f.exists() else []) if not l.startswith(h)]; f.write_text("\n".join(keep+[h+p])+"\n"); os.chmod(f,0o600)'
+```
+
+   The code takes the user name from that line (or from `WRDS_USER`). Connection: host `wrds-pgdata.wharton.upenn.edu`,
+   port 9737, database `wrds`, SSL required (`psycopg`).
+
+### Rebuilding the pull
+
+```bash
+.venv/bin/python src/wrds_pull.py lookups   # reference tables, under a minute
+.venv/bin/python src/crsp_link.py           # deals -> permno / gvkey, results/crsp_link.md
+.venv/bin/python src/wrds_pull.py daily     # daily data for linked securities, about 5 minutes
+.venv/bin/python src/crsp_prices.py         # per-deal price features, results/crsp_prices.md
+```
+
+| Table | Used for |
+|---|---|
+| `comp.company`, `comp.security` | CIK -> gvkey; company names; primary issue |
+| `crsp.ccmxpf_lnkhist` | gvkey -> permno (link types LU, LC, LS; valid on the announcement date) |
+| `crsp.stocknames_v2` | ticker and name history for the fallback links and for acquirers |
+| `crsp.dsf_v2` | daily close, total return including dividends and the delisting return, adjustment factors, delisting flag (current CRSP format, to 31 December 2025) |
+| `crsp.stkdelists` | delisting records (pulled for reference; the delisting return and payment are already in `dsf_v2`) |
+| `comp.secd` | Compustat daily prices: second source after the end of CRSP and for targets CRSP does not cover |
+| `comp.funda` | annual sales and historical SIC codes (industry shares, concentration) |
+| `ff.factors_daily` | daily market return and T-bill rate (market adjustment, beta, Sharpe ratio) |
+
+Windows: from 75 calendar days before the announcement to 30 after the outcome date (trimmed to trading days in the
+code), plus one earlier year of target returns for volatility and beta. How deals are linked, how many, and the last
+date covered: `results/crsp_link.md`. Price checks against the export and against the Capital IQ monthly closes:
+`results/crsp_prices.md`.
+
+## 6. Hoberg-Phillips TNIC-3 (public, downloaded once)
+
+Product-similarity pairs of Compustat firms by year (Hoberg and Phillips 2010, 2016), used for the antitrust-overlap
+feature group. Download <https://hobergphillips.tuck.dartmouth.edu/idata/tnic3_data.zip> (151 MB) and unpack it to
+`data/external/hoberg_phillips/extracted/tnic3_data.txt` (git-ignored). The file is keyed by gvkey pair and year and
+ends in 2023; `src/overlap.py` uses the latest year before the announcement, at most three years back.
+
+## 7. Synthetic sample (included)
 
 `data/sample/synthetic_ciq_export.csv` has 200 **synthetic** rows with the exact 81-column header of the extended export.
 Values are drawn from made-up distributions by `src/make_synthetic.py`; no Capital IQ record is used and company names are

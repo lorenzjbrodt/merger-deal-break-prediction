@@ -61,8 +61,10 @@ class Data:
     L_names: list = field(default_factory=list)
     ft: dict = field(default_factory=dict)
     PF: pd.DataFrame | None = None
+    pf_source: str = ""
     extended: bool = False
     has_market: bool = False
+    has_overlap: bool = False
     cache: dict = field(default_factory=dict)
 
 
@@ -87,13 +89,19 @@ def load_data(suffix: str = "") -> Data:
         has_market = True
     except FileNotFoundError:
         pass
+    has_overlap = False
+    ovp = INTERIM / f"overlap_features{suffix}.parquet"
+    if ovp.exists():                                         # antitrust overlap (Hoberg-Phillips TNIC, Compustat shares); see overlap.py
+        ov = deals[["deal_id"]].merge(pd.read_parquet(ovp), on="deal_id", how="left").drop(columns="deal_id")
+        X = pd.concat([X, ov.set_index(X.index)], axis=1)
+        has_overlap = True
     assert not set(X.columns) & set(F.FORBIDDEN), "forbidden column leaked into features"
     reverse = deals["secondary_features"].fillna("").astype(str).str.contains("Reverse Merger").to_numpy() if extended else np.zeros(n, bool)
     D = Data(deals=deals, X=X, y={"label": deals["label"].to_numpy(int), "label_adverse": deals["label_adverse"].fillna(0).to_numpy(int)},
              year=deals["year"].to_numpy(int), has_text=np.zeros(n, bool), core=~reverse,
              revised=deals["revised_terms"].fillna(False).to_numpy(bool),
              days_out=(deals["closed_date"].fillna(deals["cancelled_date"]) - deals["announced_date"]).dt.days.to_numpy(),
-             outcome3=deals["outcome3"].astype(object).to_numpy(), extended=extended, has_market=has_market)
+             outcome3=deals["outcome3"].astype(object).to_numpy(), extended=extended, has_market=has_market, has_overlap=has_overlap)
     tp = INTERIM / f"text{suffix}.parquet"
     if tp.exists():
         text = deals[["deal_id"]].merge(pd.read_parquet(tp), on="deal_id", how="left")
@@ -128,9 +136,11 @@ def load_data(suffix: str = "") -> Data:
         fp = INTERIM / f"ft_scores_{t}{suffix}.parquet"
         if fp.exists():
             D.ft[t] = deals[["deal_id"]].merge(pd.read_parquet(fp), on="deal_id", how="left")["ft_score"].to_numpy(dtype=float)
-    pp = INTERIM / f"price_features{suffix}.parquet"
-    if pp.exists():
-        D.PF = deals[["deal_id"]].merge(pd.read_parquet(pp), on="deal_id", how="left")
+    for pp, src in ((INTERIM / f"price_features_crsp{suffix}.parquet", "CRSP daily"), (INTERIM / f"price_features{suffix}.parquet", "Capital IQ monthly")):
+        if pp.exists():                                     # CRSP daily prices when the WRDS pull exists, else the monthly fallback
+            D.PF = deals[["deal_id"]].merge(pd.read_parquet(pp), on="deal_id", how="left")
+            D.pf_source = src
+            break
     D.X["has_text"] = D.has_text.astype(int)
     return D
 
@@ -179,6 +189,8 @@ def feat_columns(D: Data, feat: Feat):
             num += F.GROUPS[g][0]; cat += F.GROUPS[g][1]
         elif g == "market_context":
             num += MC.MARKET_FEATURES
+        elif g in ("overlap", "overlap_sic"):
+            num += [c for c in D.X.columns if c.startswith("ov_") and (g == "overlap" or "tnic" not in c)]
     if feat.year:
         num += F.YEAR
     if feat.suspects:
@@ -254,7 +266,8 @@ def design_tree(D: Data, feat: Feat, tr: np.ndarray, te: np.ndarray):
     if feat.llm and D.L is not None:
         A.append(D.L[tr]); B.append(D.L[te]); names += D.L_names
     if feat.spread and D.PF is not None:
-        S = D.PF[SPREAD_FEATURES].to_numpy(dtype=float)
+        S = np.array(D.PF[SPREAD_FEATURES].to_numpy(dtype=float), copy=True)
+        S[~D.PF["price_valid"].fillna(False).to_numpy(bool)] = np.nan       # prices that disagree with the export are not used
         A.append(S[tr]); B.append(S[te]); names += SPREAD_FEATURES
     return np.hstack(A), np.hstack(B), names
 
