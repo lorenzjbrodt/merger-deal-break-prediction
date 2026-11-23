@@ -1,0 +1,17 @@
+# Licensed Capital IQ data and anything derived from it at deal level: never commit
+data/raw/
+data/interim/
+data/edgar_cache/
+*.xls
+*.xlsx
+*.parquet
+# environment / caches
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+logs/
+.ipynb_checkpoints/
+# synthetic smoke-test outputs (not real results)
+results_synthetic/
+figures_synthetic/

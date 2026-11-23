@@ -1,0 +1,53 @@
+{
+  "input": "ciq_transactions.xls",
+  "tag": "real",
+  "n_deals": 4744,
+  "n_breaks": 346,
+  "break_rate": 0.0729,
+  "filter_log": [
+    {
+      "step": "raw export",
+      "rows": 7971,
+      "breaks": 1175
+    },
+    {
+      "step": "status in {Closed, Cancelled}",
+      "rows": 7971,
+      "breaks": 1175
+    },
+    {
+      "step": "definitive agreement date present",
+      "rows": 7294,
+      "breaks": 572
+    },
+    {
+      "step": "percent sought >= 50",
+      "rows": 6974,
+      "breaks": 560
+    },
+    {
+      "step": "target not among buyers",
+      "rows": 6947,
+      "breaks": 560
+    },
+    {
+      "step": "announcement year 2001-2025",
+      "rows": 5156,
+      "breaks": 456
+    },
+    {
+      "step": "drop SPACs",
+      "rows": 4745,
+      "breaks": 346
+    },
+    {
+      "step": "drop 1 duplicate transaction ids",
+      "rows": 4744,
+      "breaks": 346
+    }
+  ],
+  "expected": {
+    "n_deals": 4723,
+    "n_breaks": 344
+  }
+}
