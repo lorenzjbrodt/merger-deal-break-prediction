@@ -413,3 +413,11 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     sample of 4,468 deals (reverse mergers excluded) has 198 adverse breaks (158 training, 40 test) and 96 topped
     deals (79 and 17). The README and the project page named 246 next to the core sample; both now state 198. No
     result changed: every model and table already used the core sample.
+
+## Final verification pass
+
+120. **Fresh-clone test.** The public repo was cloned into an empty directory, a new Python 3.13 environment was built
+    from `requirements.txt`, and `./run_all.sh synthetic` and the demo were run as the README describes. Both worked
+    without changes. One display defect was found and fixed in `app/demo.py`: a conditional expression used as a
+    statement made Streamlit print its own help text under the similar-deals table; it is now an if/else statement.
+    No result, number or figure changed. The site title in `docs/_config.yml` now matches the page heading.

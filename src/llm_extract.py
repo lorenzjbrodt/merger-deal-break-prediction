@@ -8,8 +8,8 @@ Steps
             group documents into batch files under data/interim/llm_extract/batches/
   run-cli   run the extraction with headless Claude Code (`claude -p`), parallel, resumable,
             one cached JSON per document under data/interim/llm_extract/out/<run>/
-  collect   import results produced by subagent batches (a Claude Code workflow journal)
-            into the same per-document cache
+  collect   import results produced by an earlier batch run into the same per-document
+            cache
   features  turn the cache into a feature table data/interim/llm_terms.parquet
   validate  field-level agreement between two runs (e.g. small model vs strongest model)
 

@@ -132,7 +132,10 @@ if mode == "Pick a test-period deal":
         st.pyplot(drivers_chart(d["drivers"]))
         st.markdown("**Most similar historical broken deals (by announcement text)**")
         sd = similar_deals(art, d["press"])
-        st.dataframe(sd, hide_index=True) if len(sd) else st.write("No text available for this deal.")
+        if len(sd):
+            st.dataframe(sd, hide_index=True)
+        else:
+            st.write("No text available for this deal.")
     with right:
         st.markdown("**Terms extracted from the filing text**")
         if d["terms"]:
