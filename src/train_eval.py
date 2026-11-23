@@ -1,675 +1,732 @@
-"""Train the model ladder, evaluate on the 2019-2025 test period, write tables and figures.
+"""Train the extended model ladder and evaluate it.
 
-Split: train on announcements 2001-2018, test on 2019-2025. Hyper-parameters are chosen
-with expanding-window, year-blocked CV inside the training years only. Every fitted
-transform (imputer, scaler, one-hot, TF-IDF vocabulary, SVD, PCA) is fitted on the
-training rows of the fold it is used in. The test set is touched once, for the final
-numbers.
+Split: train on announcements 2001-2018, test on 2019-2025. Hyper-parameters are chosen by
+expanding-window CV inside the training years. All fitted transforms are fitted in-fold
+(see modeling.py). The test period is used for reporting only.
 
-Usage:
-    python src/train_eval.py                  # real data
-    python src/train_eval.py --tag synthetic  # smoke test on the synthetic sample
+Runs (target x sample):
+  primary     adverse break, core sample (reverse mergers excluded)
+  any_core    any break, core sample
+  any_spec    any break, sample exactly as specified (comparable with the base run)
+  adv_spec    adverse break, sample as specified
+
+Usage: python src/train_eval.py [--tag synthetic] [--quick]
 """
 from __future__ import annotations
 
 import argparse
 import json
+import pickle
 import time
-import warnings
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 from lightgbm import LGBMClassifier
-from sklearn.decomposition import PCA, TruncatedSVD
-from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_score, roc_curve, precision_recall_curve
+from sklearn.metrics import average_precision_score, precision_recall_curve, roc_auc_score, roc_curve
 
 import features as F
-
-warnings.filterwarnings("ignore", category=UserWarning)
-warnings.filterwarnings("ignore", category=FutureWarning)
+import market_context as MC
+import modeling as M
+from modeling import Feat
 
 ROOT = Path(__file__).resolve().parents[1]
 INTERIM = ROOT / "data/interim"
-TRAIN_END, TEST_START = 2018, 2019
 N_BOOT = 2000
-SEEDS = [0, 1, 2, 3, 4]
-N_JOBS = 8
+EXT = ("deal_terms", "premium_price", "conditions", "financials", "advisors")
+EXTM = EXT + ("market_context",)
 
-LGBM_BASE = dict(objective="binary", learning_rate=0.03, min_child_samples=25, subsample=0.8,
-                 subsample_freq=1, colsample_bytree=0.5, reg_lambda=5.0, verbose=-1, n_jobs=N_JOBS)
-LGBM_LEAVES = [3, 6, 12]
-LGBM_TREES = [100, 200, 400]
-LOGIT_C = [0.003, 0.01, 0.03, 0.1, 0.3, 1.0]
-TFIDF_LOGIT_C = [0.1, 0.3, 1.0, 3.0, 10.0]
-TOKEN = r"(?u)\b[a-zA-Z][a-zA-Z\-]{2,}\b"     # letters only: no dates / years / prices in the vocabulary
-
-
-# ----------------------------------------------------------------------------- data
-@dataclass
-class Data:
-    deals: pd.DataFrame
-    X: pd.DataFrame
-    K: np.ndarray | None
-    press: np.ndarray | None
-    agr: np.ndarray | None
-    e_press: np.ndarray | None
-    e_agr: np.ndarray | None
-    has_text: np.ndarray
-    y: np.ndarray
-    year: np.ndarray
-
-
-def load_data(suffix: str) -> Data:
-    deals = pd.read_parquet(INTERIM / f"deals{suffix}.parquet").reset_index(drop=True)
-    X = F.build_tabular(deals)
-    assert not set(X.columns) & set(F.FORBIDDEN), "forbidden column leaked into features"
-    n = len(deals)
-    K = press = agr = e_press = e_agr = None
-    has_text = np.zeros(n, dtype=bool)
-    tp = INTERIM / f"text{suffix}.parquet"
-    if tp.exists():
-        text = deals[["deal_id"]].merge(pd.read_parquet(tp), on="deal_id", how="left")
-        press = text["press_release"].fillna("").astype(str).to_numpy(dtype=object)
-        agr = text["agreement"].fillna("").astype(str).to_numpy(dtype=object)
-        has_text = text["has_text"].fillna(False).to_numpy(dtype=bool)
-        tt = pd.DataFrame({"press_release": np.where(has_text, press, ""), "agreement": np.where(has_text, agr, "")})
-        K = F.keyword_features(tt).to_numpy(dtype=float)
-        ep = INTERIM / f"embeddings{suffix}.npz"
-        if ep.exists():
-            z = np.load(ep, allow_pickle=False)
-            pos = pd.Series(np.arange(len(z["deal_id"])), index=z["deal_id"]).reindex(deals["deal_id"].astype(str))
-            ok = pos.notna().to_numpy()
-            e_press = np.full((n, z["press"].shape[1]), np.nan, dtype=np.float32)
-            e_agr = np.full((n, z["agreement"].shape[1]), np.nan, dtype=np.float32)
-            e_press[ok] = z["press"][pos[ok].astype(int)]
-            e_agr[ok] = z["agreement"][pos[ok].astype(int)]
-            e_press[~has_text] = np.nan
-            e_agr[~has_text] = np.nan
-    X["has_text"] = has_text.astype(int)
-    return Data(deals, X, K, press, agr, e_press, e_agr, has_text,
-                deals["label"].to_numpy(dtype=int), deals["year"].to_numpy(dtype=int))
-
-
-def cv_folds(years: np.ndarray, idx: np.ndarray, n_blocks: int = 4, block: int = 3):
-    """Expanding-window folds: validate on consecutive 3-year blocks at the end of the
-    training period, train on all earlier years."""
-    ys = np.sort(np.unique(years[idx]))
-    folds = []
-    for b in range(n_blocks, 0, -1):
-        val_years = ys[len(ys) - b * block: len(ys) - (b - 1) * block]
-        if len(val_years) == 0:
-            continue
-        tr = idx[years[idx] < val_years.min()]
-        va = idx[np.isin(years[idx], val_years)]
-        folds.append((tr, va))
-    return folds
-
-
-# ----------------------------------------------------------------------------- designs
-@dataclass(frozen=True)
-class Feat:
-    tab: bool = True
-    year: bool = False
-    suspects: bool = False
-    impute: bool = False        # median-impute and drop missingness flags (robustness)
-    has_text_flag: bool = False
-    kw: bool = False
-    tfidf: bool = False
-    emb: bool = False
-
-
-def design_tree(D: Data, feat: Feat, tr: np.ndarray, te: np.ndarray):
-    """Dense design matrices for LightGBM; everything fitted on `tr` only."""
-    A, B, names = [], [], []
-    if feat.tab:
-        num = list(F.NUMERIC) + (F.YEAR if feat.year else []) + (F.SUSPECT_FEATURES if feat.suspects else [])
-        if feat.impute:
-            num = [c for c in num if c != "conditions_missing"]
-        pre = F.tree_preprocessor(num, F.CATEGORICAL, impute=feat.impute)
-        A.append(np.asarray(pre.fit_transform(D.X.iloc[tr]), dtype=float))
-        B.append(np.asarray(pre.transform(D.X.iloc[te]), dtype=float))
-        names += [str(n).replace("_infrequent_sklearn", "_other") for n in pre.get_feature_names_out()]
-    if feat.has_text_flag:
-        A.append(D.has_text[tr, None].astype(float))
-        B.append(D.has_text[te, None].astype(float))
-        names.append("has_text")
-    if feat.kw:
-        A.append(D.K[tr]); B.append(D.K[te]); names += F.KEYWORD_FEATURES
-    if feat.tfidf:
-        for field, docs, k, kw in (("press", D.press, 30, dict(ngram_range=(1, 2), min_df=5, max_features=30000)),
-                                   ("agreement", D.agr, 10, dict(ngram_range=(1, 1), min_df=10, max_features=20000))):
-            has = np.array([len(t) > 0 for t in docs]) & D.has_text
-            a = np.full((len(tr), k), np.nan); b = np.full((len(te), k), np.nan)
-            if has[tr].sum() > 5 * k:
-                vec = TfidfVectorizer(lowercase=True, stop_words="english", token_pattern=TOKEN, max_df=0.9,
-                                      sublinear_tf=True, dtype=np.float32, **kw)
-                Ttr = vec.fit_transform([t[:200_000] for t in docs[tr][has[tr]]])
-                kk = min(k, Ttr.shape[1] - 1)
-                svd = TruncatedSVD(kk, random_state=0)
-                a[has[tr], :kk] = svd.fit_transform(Ttr)
-                if has[te].any():
-                    b[has[te], :kk] = svd.transform(vec.transform([t[:200_000] for t in docs[te][has[te]]]))
-            A.append(a); B.append(b); names += [f"tfidf_{field}_svd{i + 1}" for i in range(k)]
-    if feat.emb:
-        for field, E, k in (("press", D.e_press, 20), ("agreement", D.e_agr, 10)):
-            ok = np.isfinite(E[:, 0])
-            a = np.full((len(tr), k), np.nan); b = np.full((len(te), k), np.nan)
-            if ok[tr].sum() > 5 * k:
-                pca = PCA(k, random_state=0).fit(E[tr][ok[tr]])
-                a[ok[tr]] = pca.transform(E[tr][ok[tr]])
-                if ok[te].any():
-                    b[ok[te]] = pca.transform(E[te][ok[te]])
-            A.append(a); B.append(b); names += [f"emb_{field}_pc{i + 1}" for i in range(k)]
-    return np.hstack(A), np.hstack(B), names
-
-
-def design_logit(D: Data, feat: Feat, tr, te):
-    num = list(F.NUMERIC) + (F.YEAR if feat.year else [])
-    pre = F.logistic_preprocessor(num, F.CATEGORICAL)
-    return pre.fit_transform(D.X.iloc[tr]), pre.transform(D.X.iloc[te]), [str(n) for n in pre.get_feature_names_out()]
-
-
-def design_tfidf_sparse(D: Data, tr, te):
-    vec = TfidfVectorizer(lowercase=True, stop_words="english", token_pattern=TOKEN, ngram_range=(1, 2),
-                          min_df=5, max_df=0.9, max_features=30000, sublinear_tf=True)
-    return vec.fit_transform(D.press[tr]), vec.transform(D.press[te]), list(vec.get_feature_names_out())
-
-
-# ----------------------------------------------------------------------------- fitting
-def auc_safe(y, s):
-    return roc_auc_score(y, s) if 0 < y.sum() < len(y) else np.nan
-
-
-def cv_lgbm(D: Data, feat: Feat, folds):
-    """Mean fold AUC for every (num_leaves, n_estimators); returns best params and OOF scores."""
-    scores = {(l, t): [] for l in LGBM_LEAVES for t in LGBM_TREES}
-    oof = {k: [] for k in scores}
-    for tr, va in folds:
-        if D.y[tr].sum() < 5 or D.y[va].sum() < 2:
-            continue
-        A, B, _ = design_tree(D, feat, tr, va)
-        for l in LGBM_LEAVES:
-            m = LGBMClassifier(**LGBM_BASE, num_leaves=l, n_estimators=max(LGBM_TREES), random_state=0).fit(A, D.y[tr])
-            for t in LGBM_TREES:
-                p = m.predict_proba(B, num_iteration=t)[:, 1]
-                scores[(l, t)].append(auc_safe(D.y[va], p))
-                oof[(l, t)].append(p)
-    if not any(scores.values()):
-        return (LGBM_LEAVES[0], LGBM_TREES[0]), np.nan, np.array([])
-    mean = {k: float(np.nanmean(v)) for k, v in scores.items() if v}
-    best = max(mean, key=mean.get)
-    return best, mean[best], np.concatenate(oof[best])
-
-
-def fit_lgbm(D: Data, feat: Feat, tr, te, best):
-    A, B, names = design_tree(D, feat, tr, te)
-    p = np.zeros(len(te)); gain = np.zeros(A.shape[1])
-    for seed in SEEDS:
-        m = LGBMClassifier(**LGBM_BASE, num_leaves=best[0], n_estimators=best[1], random_state=seed).fit(A, D.y[tr])
-        p += m.predict_proba(B)[:, 1] / len(SEEDS)
-        gain += m.booster_.feature_importance(importance_type="gain") / len(SEEDS)
-    return p, dict(zip(names, gain.tolist()))
-
-
-def cv_linear(D: Data, folds, grid, design):
-    scores = {c: [] for c in grid}
-    oof = {c: [] for c in grid}
-    for tr, va in folds:
-        if D.y[tr].sum() < 5 or D.y[va].sum() < 2:
-            continue
-        A, B, _ = design(tr, va)
-        for c in grid:
-            m = LogisticRegression(C=c, max_iter=3000).fit(A, D.y[tr])
-            p = m.predict_proba(B)[:, 1]
-            scores[c].append(auc_safe(D.y[va], p)); oof[c].append(p)
-    if not any(scores.values()):
-        return grid[0], np.nan, np.array([])
-    mean = {k: float(np.nanmean(v)) for k, v in scores.items() if v}
-    best = max(mean, key=mean.get)
-    return best, mean[best], np.concatenate(oof[best])
-
-
-ONE_RULES = {
-    "stock-only consideration": lambda X: (X["consideration_type"] == "stock").to_numpy(),
-    "any stock in consideration": lambda X: (X["stock_pct"].fillna(0) > 0).to_numpy(),
-    "solicited approach": lambda X: (X["solicited"] == 1).to_numpy(),
-    "buyer not listed": lambda X: (X["buyer_listed"] == 0).to_numpy(),
-    "financial condition attached": lambda X: (X["cond_financial"] == 1).to_numpy(),
-    "not yet signed at announcement": lambda X: (X["signed_after_announcement"] == 1).to_numpy(),
-    "more than one buyer": lambda X: (X["buyer_count"] > 1).to_numpy(),
-}
-
-
-def one_rule(D: Data, tr, te, folds):
-    """Pick the single binary rule with the best CV AUC; score = training break rate per group."""
-    def score(rule, a, b):
-        r_tr, r_te = rule(D.X.iloc[a]), rule(D.X.iloc[b])
-        p1 = D.y[a][r_tr].mean() if r_tr.any() else D.y[a].mean()
-        p0 = D.y[a][~r_tr].mean() if (~r_tr).any() else D.y[a].mean()
-        return np.where(r_te, p1, p0)
-    cv = {}
-    for name, rule in ONE_RULES.items():
-        aucs = [auc_safe(D.y[va], score(rule, a, va)) for a, va in folds if D.y[a].sum() >= 5 and D.y[va].sum() >= 2]
-        cv[name] = float(np.nanmean(aucs)) if aucs else 0.5
-    best = max(cv, key=cv.get)
-    return score(ONE_RULES[best], tr, te), best, cv
-
-
-# ----------------------------------------------------------------------------- metrics
-def capture_at(y, s, frac):
-    """Share of all breaks that sit in the riskiest `frac` of deals (ties split pro rata)."""
-    n = len(y); k = max(int(round(frac * n)), 1)
-    order = np.argsort(-s, kind="stable"); ss, ys = s[order], y[order]
-    thr = ss[k - 1]
-    above, tied = ss > thr, ss == thr
-    got = ys[above].sum() + ys[tied].sum() * (k - above.sum()) / tied.sum()
-    return float(got / max(ys.sum(), 1))
-
-
-def metrics(y, s):
-    return {"roc_auc": float(auc_safe(y, s)), "pr_auc": float(average_precision_score(y, s)),
-            "brier": float(brier_score_loss(y, s)),
-            "capture_top10": capture_at(y, s, 0.10), "capture_top20": capture_at(y, s, 0.20)}
-
-
-def bootstrap(y, preds: dict[str, np.ndarray], pairs: list[tuple[str, str]], n_boot=N_BOOT, seed=0):
-    """Nonparametric bootstrap over test deals: 95% CIs per model and for paired differences."""
-    rng = np.random.default_rng(seed)
-    n = len(y)
-    draws = {m: [] for m in preds}
-    for _ in range(n_boot):
-        ix = rng.integers(0, n, n)
-        yb = y[ix]
-        if yb.sum() < 2:
-            continue
-        for m, p in preds.items():
-            draws[m].append(list(metrics(yb, p[ix]).values()))
-    keys = list(metrics(y, next(iter(preds.values()))).keys())
-    arr = {m: np.array(v) for m, v in draws.items()}
-    ci = {m: {k: [float(np.percentile(a[:, j], 2.5)), float(np.percentile(a[:, j], 97.5))] for j, k in enumerate(keys)}
-          for m, a in arr.items()}
-    diffs = {}
-    for a, b in pairs:
-        if a in arr and b in arr:
-            d = arr[a] - arr[b]
-            diffs[f"{a} minus {b}"] = {
-                k: {"point": float(metrics(y, preds[a])[k] - metrics(y, preds[b])[k]),
-                    "ci95": [float(np.percentile(d[:, j], 2.5)), float(np.percentile(d[:, j], 97.5))],
-                    "share_boot_gt0": float((d[:, j] > 0).mean())}
-                for j, k in enumerate(keys)}
-    return ci, diffs
-
-
-# ----------------------------------------------------------------------------- ladder
 LABELS = {
     "base_rate": "0. Base rate",
     "one_rule": "1. One rule",
-    "logit_tab": "2. Logistic, tabular",
-    "lgbm_tab": "3. LightGBM, tabular",
-    "lgbm_tab_kw": "3k. LightGBM, tabular + keywords",
-    "lgbm_tab_tfidf": "4. LightGBM, tabular + keywords + TF-IDF",
-    "lgbm_tab_emb": "5. LightGBM, tabular + keywords + embeddings",
+    "logit_base": "2. Logistic, base tabular",
+    "lgbm_base": "3. LightGBM, base tabular (as in the base run)",
+    "lgbm_ext": "3x. LightGBM + extended deal, buyer and target features",
+    "lgbm_extm": "3m. LightGBM + extended features + market context",
+    "lgbm_kw": "3k. 3m + keyword flags",
+    "lgbm_tfidf": "4. 3m + keywords + TF-IDF",
+    "lgbm_emb": "5. 3m + keywords + frozen embeddings",
+    "lgbm_llm": "5L. 3m + keywords + LLM-extracted terms",
+    "lgbm_alltext": "5A. 3m + keywords + TF-IDF + embeddings + LLM terms",
     "tfidf_logit": "6a. Text only: TF-IDF logistic",
-    "lgbm_text_only": "6b. Text only: keywords + embeddings LightGBM",
-    "lgbm_tab_hastext": "3t. LightGBM, tabular + has_text flag",
-    "lgbm_full_text": "5f. LightGBM, tabular + has_text + keywords + embeddings",
-    "lgbm_tab_suspects": "A1. Ablation: tabular + Deal Responses/Attitude (leakage suspects)",
-    "lgbm_tab_imputed": "A2. Ablation: tabular, median-imputed, no missingness signal",
+    "lgbm_text_only": "6b. Text only: keywords + embeddings + LLM terms",
+    "ft_encoder": "6c. Text only: fine-tuned encoder",
+    "fusion_ft": "6d. 3m fused with the fine-tuned encoder score",
+    "lgbm_full_text": "5f. 3m + has_text + keywords + embeddings + LLM terms",
+    "lgbm_suspects": "A1. Ablation: 3m + Deal Responses / Attitude (leakage suspects)",
+    "lgbm_imputed": "A2. Ablation: 3m, median-imputed, no missingness signal",
+}
+SHORT = {k: v.split(".")[0] for k, v in LABELS.items()}
+RUNS = {
+    "primary": ("label_adverse", "core", "Adverse break, core sample (reverse mergers excluded)"),
+    "any_core": ("label", "core", "Any break, core sample (reverse mergers excluded)"),
+    "any_spec": ("label", "spec", "Any break, sample as specified (comparable with the base run)"),
+    "adv_spec": ("label_adverse", "spec", "Adverse break, sample as specified"),
 }
 
 
-def run_ladder(D: Data, tr, te, text_models: bool, full_extras: bool, log):
-    """Fit the ladder on `tr`, predict `te`. Returns predictions and bookkeeping."""
-    folds = cv_folds(D.year, tr)
-    preds, info, oof, gains = {}, {}, {}, {}
-    y_tr = D.y[tr]
-
-    preds["base_rate"] = np.full(len(te), y_tr.mean())
-    info["base_rate"] = {"train_break_rate": float(y_tr.mean())}
-
-    p, rule, cv = one_rule(D, tr, te, folds)
-    preds["one_rule"] = p; info["one_rule"] = {"rule": rule, "cv_auc_by_rule": cv}
-    log(f"  one rule: {rule} (cv auc {cv[rule]:.3f})")
-
-    # 2. logistic regression; `year` in or out is chosen by CV
-    best = None
-    for use_year in (False, True):
-        ft = Feat(year=use_year)
-        c, s, o = cv_linear(D, folds, LOGIT_C, lambda a, b, ft=ft: design_logit(D, ft, a, b))
-        if best is None or (s == s and s > best[1]):
-            best = (c, s, o, use_year)
-    c, s, o, use_year = best
-    A, B, names = design_logit(D, Feat(year=use_year), tr, te)
-    m = LogisticRegression(C=c, max_iter=3000).fit(A, y_tr)
-    preds["logit_tab"] = m.predict_proba(B)[:, 1]; oof["logit_tab"] = o
-    info["logit_tab"] = {"C": c, "use_year": use_year, "cv_auc": s,
-                         "top_coefficients": dict(sorted(zip(names, m.coef_[0].tolist()), key=lambda kv: -abs(kv[1]))[:15])}
-    log(f"  logit: C={c} year={use_year} cv auc {s:.3f}")
-
-    # 3. LightGBM tabular; `year` in or out chosen by CV and then held fixed for all LightGBM variants
-    best = None
-    for use_year in (False, True):
-        bp, s, o = cv_lgbm(D, Feat(year=use_year), folds)
-        if best is None or (s == s and s > best[1]):
-            best = (bp, s, o, use_year)
-    bp, s, o, use_year = best
-    preds["lgbm_tab"], gains["lgbm_tab"] = fit_lgbm(D, Feat(year=use_year), tr, te, bp)
-    oof["lgbm_tab"] = o
-    info["lgbm_tab"] = {"num_leaves": bp[0], "n_estimators": bp[1], "use_year": use_year, "cv_auc": s}
-    log(f"  lgbm tab: leaves={bp[0]} trees={bp[1]} year={use_year} cv auc {s:.3f}")
-
-    variants = {}
-    if text_models and D.K is not None:
-        variants["lgbm_tab_kw"] = Feat(year=use_year, kw=True)
-        variants["lgbm_tab_tfidf"] = Feat(year=use_year, kw=True, tfidf=True)
-        if D.e_press is not None:
-            variants["lgbm_tab_emb"] = Feat(year=use_year, kw=True, emb=True)
-            variants["lgbm_text_only"] = Feat(tab=False, kw=True, emb=True)
-    if full_extras:
-        variants["lgbm_tab_suspects"] = Feat(year=use_year, suspects=True)
-        variants["lgbm_tab_imputed"] = Feat(year=use_year, impute=True)
+def specs(D, uy: bool, subset: str, reduced: bool) -> dict:
+    """Model variants (all LightGBM) for a subset: 'full' sample or 'text' subset."""
+    ext = EXT if D.extended else ()
+    extm = ext + (("market_context",) if D.has_market else ())
+    if not ext:   # base schema only (should not happen with the extended export)
+        return {}
+    S = {"lgbm_ext": Feat(groups=ext, year=uy), "lgbm_extm": Feat(groups=extm, year=uy)}
+    have_llm, have_emb = D.L is not None, D.e_press is not None
+    if subset == "text" and D.K is not None:
+        if not reduced:
+            S["lgbm_kw"] = Feat(groups=extm, year=uy, kw=True)
+        S["lgbm_tfidf"] = Feat(groups=extm, year=uy, kw=True, tfidf=True)
+        if have_emb:
+            S["lgbm_emb"] = Feat(groups=extm, year=uy, kw=True, emb=True)
+        if have_llm:
+            S["lgbm_llm"] = Feat(groups=extm, year=uy, kw=True, llm=True)
+        S["lgbm_alltext"] = Feat(groups=extm, year=uy, kw=True, tfidf=True, emb=have_emb, llm=have_llm)
+        if not reduced:
+            S["lgbm_text_only"] = Feat(kw=True, emb=have_emb, llm=have_llm)
+    if subset == "full":
         if D.K is not None and D.has_text.any():
-            variants["lgbm_tab_hastext"] = Feat(year=use_year, has_text_flag=True)
-            if D.e_press is not None:
-                variants["lgbm_full_text"] = Feat(year=use_year, has_text_flag=True, kw=True, emb=True)
-    for name, ft in variants.items():
-        bp, s, o = cv_lgbm(D, ft, folds)
-        preds[name], gains[name] = fit_lgbm(D, ft, tr, te, bp)
-        oof[name] = o
-        info[name] = {"num_leaves": bp[0], "n_estimators": bp[1], "use_year": ft.year, "cv_auc": s}
-        log(f"  {name}: leaves={bp[0]} trees={bp[1]} cv auc {s:.3f}")
+            S["lgbm_full_text"] = Feat(groups=extm, year=uy, has_text_flag=True, kw=True, emb=have_emb, llm=have_llm)
+        if not reduced:
+            S["lgbm_suspects"] = Feat(groups=extm, year=uy, suspects=True)
+            S["lgbm_imputed"] = Feat(groups=extm, year=uy, impute=True)
+    return S
 
-    if text_models and D.press is not None:
-        c, s, o = cv_linear(D, folds, TFIDF_LOGIT_C, lambda a, b: design_tfidf_sparse(D, a, b))
-        A, B, names = design_tfidf_sparse(D, tr, te)
-        m = LogisticRegression(C=c, max_iter=3000).fit(A, y_tr)
-        preds["tfidf_logit"] = m.predict_proba(B)[:, 1]; oof["tfidf_logit"] = o
+
+def run_ladder(D, target: str, tr, te, subset: str, reduced: bool, log):
+    y = D.y[target]
+    folds = M.cv_folds(D.year, tr)
+    P, I, G, O, feats = {}, {}, {}, {}, {}
+    P["base_rate"] = np.full(len(te), y[tr].mean()); I["base_rate"] = {"train_rate": float(y[tr].mean())}
+    P["one_rule"], rule, cv = M.one_rule(D, y, tr, te, folds); I["one_rule"] = {"rule": rule, "cv_auc_by_rule": cv}
+
+    best = None
+    for uy in (False, True):
+        ft = Feat(base_only=True, year=uy)
+        c, s, oi, op = M.cv_linear(y, folds, M.LOGIT_C, lambda a, b, ft=ft: M.design_logit(D, ft, a, b))
+        if best is None or (s == s and s > best[1]):
+            best = (c, s, oi, op, uy)
+    c, s, oi, op, uy_l = best
+    A, B, names = M.design_logit(D, Feat(base_only=True, year=uy_l), tr, te)
+    m = LogisticRegression(C=c, max_iter=3000).fit(A, y[tr])
+    P["logit_base"] = m.predict_proba(B)[:, 1]; O["logit_base"] = (oi, op)
+    I["logit_base"] = {"C": c, "use_year": uy_l, "cv_auc": s}
+    feats["logit_base"] = ("logit", Feat(base_only=True, year=uy_l), c)
+
+    best = None
+    for uy in (False, True):
+        bp, s, oi, op = M.cv_lgbm(D, y, Feat(base_only=True, year=uy), folds)
+        if best is None or (s == s and s > best[1]):
+            best = (bp, s, oi, op, uy)
+    bp, s, oi, op, uy = best
+    P["lgbm_base"], G["lgbm_base"] = M.fit_lgbm(D, y, Feat(base_only=True, year=uy), tr, te, bp)
+    O["lgbm_base"] = (oi, op); I["lgbm_base"] = {"num_leaves": bp[0], "n_estimators": bp[1], "use_year": uy, "cv_auc": s}
+    feats["lgbm_base"] = ("lgbm", Feat(base_only=True, year=uy), bp)
+    log(f"    logit C={c} cv {I['logit_base']['cv_auc']:.3f} | lgbm_base {bp} year={uy} cv {s:.3f}")
+
+    for name, ft in specs(D, uy, subset, reduced).items():
+        bp, s, oi, op = M.cv_lgbm(D, y, ft, folds)
+        P[name], G[name] = M.fit_lgbm(D, y, ft, tr, te, bp)
+        O[name] = (oi, op); I[name] = {"num_leaves": bp[0], "n_estimators": bp[1], "use_year": ft.year, "cv_auc": s}
+        feats[name] = ("lgbm", ft, bp)
+        log(f"    {name}: {bp} cv {s:.3f}")
+
+    if subset == "text" and D.press is not None:
+        c, s, oi, op = M.cv_linear(y, folds, M.TFIDF_LOGIT_C, lambda a, b: M.design_tfidf_sparse(D, a, b))
+        A, B, names = M.design_tfidf_sparse(D, tr, te)
+        m = LogisticRegression(C=c, max_iter=3000).fit(A, y[tr])
+        P["tfidf_logit"] = m.predict_proba(B)[:, 1]; O["tfidf_logit"] = (oi, op)
         order = np.argsort(m.coef_[0])
-        info["tfidf_logit"] = {"C": c, "cv_auc": s,
-                               "top_terms_break": [names[i] for i in order[::-1][:25]],
-                               "top_terms_close": [names[i] for i in order[:25]]}
-        log(f"  tfidf logit: C={c} cv auc {s:.3f}")
+        I["tfidf_logit"] = {"C": c, "cv_auc": s, "top_terms_break": [names[i] for i in order[::-1][:25]],
+                            "top_terms_close": [names[i] for i in order[:25]]}
+        # fine-tuned encoder: trained on <=2015, early-stopped on 2016-2018 (see finetune_encoder.py)
+        if target in D.ft and np.isfinite(D.ft[target][te]).all() and "lgbm_extm" in O:
+            P["ft_encoder"] = D.ft[target][te]; I["ft_encoder"] = {"note": "trained <=2015, early stopping on 2016-2018"}
+            oi, op = O["lgbm_extm"]
+            val = D.year[oi] >= 2016                        # rows where both scores are out-of-sample
+            if val.sum() > 50 and y[oi][val].sum() >= 5:
+                Z = np.column_stack([M.logit(op[val]), M.logit(D.ft[target][oi][val])])
+                st = LogisticRegression(C=1.0, max_iter=1000).fit(Z, y[oi][val])
+                P["fusion_ft"] = st.predict_proba(np.column_stack([M.logit(P["lgbm_extm"]), M.logit(P["ft_encoder"])]))[:, 1]
+                I["fusion_ft"] = {"stacker_coef": st.coef_[0].tolist(), "fitted_on": "2016-2018 validation years",
+                                  "n": int(val.sum()), "positives": int(y[oi][val].sum())}
+    for name, (oi, op) in O.items():
+        if len(op):
+            I[name]["oof_quantiles"] = {"q80": float(np.quantile(op, 0.8)), "q90": float(np.quantile(op, 0.9))}
+    return P, I, G, O, feats
 
-    for name, o in oof.items():   # ex-ante thresholds for the impact simulation
-        if len(o):
-            info[name]["oof_quantiles"] = {"q80": float(np.quantile(o, 0.8)), "q90": float(np.quantile(o, 0.9))}
-    return preds, info, gains
 
-
-# ----------------------------------------------------------------------------- reporting
+# ----------------------------------------------------------------------------- reporting helpers
 def fmt_ci(v, ci, d=3):
     return f"{v:.{d}f} [{ci[0]:.{d}f}, {ci[1]:.{d}f}]"
 
 
 def table(y, preds, ci, order):
-    rows = ["| Model | ROC AUC | PR AUC | Brier | Breaks in riskiest 10% | Breaks in riskiest 20% |",
-            "|---|---|---|---|---|---|"]
+    rows = ["| Model | ROC AUC | PR AUC | Brier | Breaks in riskiest 10% | Breaks in riskiest 20% |", "|---|---|---|---|---|---|"]
     for m in order:
-        if m not in preds:
-            continue
-        mt = metrics(y, preds[m])
-        rows.append(f"| {LABELS[m]} | {fmt_ci(mt['roc_auc'], ci[m]['roc_auc'])} | {fmt_ci(mt['pr_auc'], ci[m]['pr_auc'])} | "
-                    f"{fmt_ci(mt['brier'], ci[m]['brier'], 4)} | {fmt_ci(mt['capture_top10'], ci[m]['capture_top10'], 2)} | "
-                    f"{fmt_ci(mt['capture_top20'], ci[m]['capture_top20'], 2)} |")
+        if m in preds:
+            mt = M.metrics(y, preds[m])
+            rows.append(f"| {LABELS[m]} | {fmt_ci(mt['roc_auc'], ci[m]['roc_auc'])} | {fmt_ci(mt['pr_auc'], ci[m]['pr_auc'])} | "
+                        f"{fmt_ci(mt['brier'], ci[m]['brier'], 4)} | {fmt_ci(mt['capture_top10'], ci[m]['capture_top10'], 2)} | "
+                        f"{fmt_ci(mt['capture_top20'], ci[m]['capture_top20'], 2)} |")
     return rows
 
 
-def segment_table(seg: pd.Series, y, preds, models):
-    rows = ["| Segment | Deals | Breaks | Break rate | " + " | ".join(f"AUC {LABELS[m].split('.')[0]}" for m in models) + " | "
-            + " | ".join(f"Top-20% capture {LABELS[m].split('.')[0]}" for m in models) + " |",
-            "|---|---:|---:|---:|" + "---:|" * (2 * len(models))]
-    for s in list(pd.unique(seg)):
-        mk = (seg == s).to_numpy()
-        yy = y[mk]
-        aucs = [f"{auc_safe(yy, preds[m][mk]):.3f}" if yy.sum() >= 5 else "n/a" for m in models]
-        caps = [f"{capture_at(yy, preds[m][mk], 0.2):.2f}" if yy.sum() >= 5 else "n/a" for m in models]
-        rows.append(f"| {s} | {mk.sum()} | {int(yy.sum())} | {yy.mean():.1%} | " + " | ".join(aucs) + " | " + " | ".join(caps) + " |")
+def diff_table(diffs):
+    rows = ["| Comparison | ROC AUC | PR AUC | Brier (negative = better) | Breaks in riskiest 10% | Breaks in riskiest 20% |", "|---|---|---|---|---|---|"]
+    for k, d in diffs.items():
+        a, b = k.split(" minus ")
+        rows.append(f"| {SHORT.get(a, a)} minus {SHORT.get(b, b)} | " + " | ".join(
+            f"{d[m]['point']:+.{4 if m == 'brier' else 3}f} [{d[m]['ci95'][0]:+.{4 if m == 'brier' else 3}f}, {d[m]['ci95'][1]:+.{4 if m == 'brier' else 3}f}]"
+            for m in M.METRIC_KEYS) + " |")
     return rows
 
 
-def make_figures(D, fig_dir, y_text, preds_text, y_full, preds_full, gains_full, gains_text, synthetic):
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False,
-                         "figure.dpi": 150, "savefig.bbox": "tight", "axes.grid": True, "grid.alpha": 0.25})
-    note = " (synthetic sample)" if synthetic else ""
-    colors = {"base_rate": "#9e9e9e", "one_rule": "#bdbdbd", "logit_tab": "#6baed6", "lgbm_tab": "#08519c",
-              "lgbm_tab_tfidf": "#fd8d3c", "lgbm_tab_emb": "#d94801", "tfidf_logit": "#74c476", "lgbm_text_only": "#238b45"}
-    short = {"base_rate": "0 base rate", "one_rule": "1 one rule", "logit_tab": "2 logistic tabular",
-             "lgbm_tab": "3 LightGBM tabular", "lgbm_tab_tfidf": "4 tabular + TF-IDF", "lgbm_tab_emb": "5 tabular + embeddings",
-             "tfidf_logit": "6a text only (TF-IDF)", "lgbm_text_only": "6b text only (embeddings)"}
+ORDER_TEXT = ["base_rate", "one_rule", "logit_base", "lgbm_base", "lgbm_ext", "lgbm_extm", "lgbm_kw", "lgbm_tfidf", "lgbm_emb",
+              "lgbm_llm", "lgbm_alltext", "tfidf_logit", "lgbm_text_only", "ft_encoder", "fusion_ft"]
+ORDER_FULL = ["base_rate", "one_rule", "logit_base", "lgbm_base", "lgbm_ext", "lgbm_extm", "lgbm_full_text", "lgbm_suspects", "lgbm_imputed"]
+PAIRS_TEXT = [("lgbm_ext", "lgbm_base"), ("lgbm_extm", "lgbm_ext"), ("lgbm_tfidf", "lgbm_extm"), ("lgbm_emb", "lgbm_extm"),
+              ("lgbm_llm", "lgbm_extm"), ("lgbm_alltext", "lgbm_extm"), ("fusion_ft", "lgbm_extm"), ("ft_encoder", "tfidf_logit"),
+              ("lgbm_alltext", "lgbm_base")]
+PAIRS_FULL = [("lgbm_base", "logit_base"), ("lgbm_ext", "lgbm_base"), ("lgbm_extm", "lgbm_ext"), ("lgbm_extm", "lgbm_base"),
+              ("lgbm_full_text", "lgbm_extm"), ("lgbm_suspects", "lgbm_extm"), ("lgbm_imputed", "lgbm_extm")]
 
-    # 1. break rate by year
-    g = D.deals.groupby("year")["label"].agg(["size", "mean"])
-    fig, ax = plt.subplots(figsize=(8, 3.6))
-    ax.bar(g.index, g["size"], color="#c6dbef", label="Deals (left)")
-    ax.set_ylabel("Deals announced"); ax.set_xlabel("Announcement year")
-    ax2 = ax.twinx(); ax2.spines["right"].set_visible(True); ax2.grid(False)
-    ax2.plot(g.index, 100 * g["mean"], color="#08519c", marker="o", ms=4, label="Break rate (right)")
-    ax2.set_ylabel("Break rate (%)"); ax2.set_ylim(0, max(15, 100 * g["mean"].max() * 1.15))
-    ax.axvline(TRAIN_END + 0.5, color="k", ls="--", lw=1)
-    ax.text(TRAIN_END + 0.6, ax.get_ylim()[1] * 0.95, "test", va="top", fontsize=9)
-    ax.text(TRAIN_END + 0.4, ax.get_ylim()[1] * 0.95, "train", va="top", ha="right", fontsize=9)
-    ax.set_title("Deals and break rate by announcement year" + note, loc="left", fontsize=10)
-    fig.savefig(fig_dir / "break_rate_by_year.png"); plt.close(fig)
+FEATURE_TEXT = {
+    "premium_1d": "offer premium over the prior day's price", "premium_1w": "offer premium over the price a week earlier",
+    "premium_1m": "offer premium over the price a month earlier", "pct_52w_high": "target price as % of its 52-week high",
+    "pct_52w_low": "target price as % of its 52-week low", "target_ltm_return": "target's 12-month return before the deal",
+    "log_deal_value": "deal size", "log_target_mktcap": "target market cap", "log_implied_equity_value": "implied equity value",
+    "log_implied_ev": "implied enterprise value", "value_to_mktcap": "deal value relative to target market cap",
+    "cash_pct": "cash share of the consideration", "stock_pct": "stock share of the consideration", "solicited": "solicited approach (target ran a process)",
+    "buyer_listed": "buyer is a listed company", "buyer_financial": "financial buyer (private equity)", "feat_lbo": "leveraged buyout",
+    "feat_going_private": "going-private transaction", "feat_go_shop": "go-shop provision", "feat_tender_offer": "tender offer structure",
+    "feat_cross_border": "cross-border deal", "feat_management_buyout": "management buyout", "feat_management_participated": "management participates",
+    "feat_merger_of_equals": "merger of equals", "feat_cash_merger": "cash merger", "feat_stock_merger": "stock merger",
+    "sell_fee_pct_value": "target termination fee as % of deal value", "buy_fee_pct_value": "buyer (reverse) termination fee as % of deal value",
+    "has_buy_side_fee": "a buyer termination fee is recorded", "log_sell_fee_usd": "target termination fee (USD)", "log_buy_fee_usd": "buyer termination fee (USD)",
+    "rel_size_deal_to_acq": "deal value relative to acquirer market cap", "log_acq_mktcap": "acquirer market cap", "acq_has_mktcap": "acquirer has a market cap (is listed)",
+    "acq_cash_to_deal_value": "acquirer cash relative to deal value", "acq_leverage": "acquirer leverage", "acq_ltm_return": "acquirer's 12-month return",
+    "acq_pct_52w_high": "acquirer price as % of its 52-week high", "tgt_leverage": "target leverage", "tgt_roa": "target return on assets",
+    "tgt_loss_making": "target is loss-making", "ev_ebitda": "EV / EBITDA multiple", "ev_revenue": "EV / revenue multiple", "pb_multiple": "price / book multiple",
+    "pe_multiple": "price / earnings multiple", "same_sector": "buyer and target in the same sector", "mkt_vix": "VIX level before announcement",
+    "mkt_vix_chg_30d": "30-day change in the VIX", "mkt_baa_aaa_spread": "Baa minus Aaa credit spread", "mkt_baa_10y_spread": "Baa minus 10-year Treasury spread",
+    "mkt_ust10y": "10-year Treasury yield", "mkt_equity_ret_3m": "equity market 3-month return", "mkt_equity_ret_12m": "equity market 12-month return",
+    "mkt_deals_90d": "number of deals announced in the prior 90 days", "mkt_break_rate_12m": "break rate of deals resolved in the prior 12 months",
+    "days_signed_before_announcement": "days between signing and announcement", "signed_after_announcement": "not yet signed at announcement",
+    "cond_financial": "financing-related condition recorded", "n_conditions": "number of deal conditions recorded", "conditions_missing": "no deal conditions recorded",
+    "buyer_count": "number of buyers", "year": "announcement year", "n_fin_adv_target": "number of target financial advisers",
+    "n_legal_adv_buyer": "number of buyer legal advisers", "log_offer_per_share": "offer price per share", "pct_sought": "percent of shares sought",
+    "cash_share_of_value": "cash consideration as a share of deal value", "log_tgt_revenue": "target revenue", "log_tgt_assets": "target total assets",
+}
 
-    ladder = [m for m in ["one_rule", "logit_tab", "lgbm_tab", "lgbm_tab_tfidf", "lgbm_tab_emb", "tfidf_logit", "lgbm_text_only"]
-              if m in preds_text]
-    y, P = (y_text, preds_text) if len(ladder) > 3 else (y_full, preds_full)
-    ladder = [m for m in ladder if m in P]
 
-    # 2. ROC and PR
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
-    for m in ladder:
-        fpr, tpr, _ = roc_curve(y, P[m]); pr, rc, _ = precision_recall_curve(y, P[m])
-        axes[0].plot(fpr, tpr, color=colors[m], lw=1.6, label=f"{short[m]} ({roc_auc_score(y, P[m]):.2f})")
-        axes[1].plot(rc, pr, color=colors[m], lw=1.6, label=f"{short[m]} ({average_precision_score(y, P[m]):.2f})")
-    axes[0].plot([0, 1], [0, 1], color="#9e9e9e", ls="--", lw=1)
-    axes[1].axhline(y.mean(), color="#9e9e9e", ls="--", lw=1)
-    axes[0].set(xlabel="False positive rate", ylabel="True positive rate"); axes[0].set_title("ROC, test 2019-2025" + note, loc="left", fontsize=10)
-    axes[1].set(xlabel="Recall (share of breaks found)", ylabel="Precision", ylim=(0, min(1, max(0.6, 3 * y.mean()))))
-    axes[1].set_title("Precision-recall (dashed: base rate)", loc="left", fontsize=10)
-    axes[0].legend(fontsize=7.5, title="ROC AUC", title_fontsize=8, loc="lower right")
-    axes[1].legend(fontsize=7.5, title="PR AUC", title_fontsize=8, loc="upper right")
-    fig.savefig(fig_dir / "roc_pr_ladder.png"); plt.close(fig)
-
-    # 3. calibration (quintile bins: few breaks, so few bins)
-    fig, ax = plt.subplots(figsize=(4.8, 4.4))
-    lim = 0.0
-    for m in [m for m in ["logit_tab", "lgbm_tab", "lgbm_tab_emb"] if m in P]:
-        q = pd.qcut(pd.Series(P[m]).rank(method="first"), 5, labels=False).to_numpy()
-        xs = [P[m][q == b].mean() for b in range(5)]; ys = [y[q == b].mean() for b in range(5)]
-        se = [np.sqrt(max(v * (1 - v), 1e-9) / (q == b).sum()) for b, v in enumerate(ys)]
-        ax.errorbar(xs, ys, yerr=1.96 * np.array(se), color=colors[m], marker="o", ms=4, lw=1.4, capsize=2, label=short[m])
-        lim = max(lim, max(xs), max(ys))
-    lim = min(1.0, lim * 1.25 + 0.02)
-    ax.plot([0, lim], [0, lim], color="#9e9e9e", ls="--", lw=1)
-    ax.set(xlabel="Mean predicted break probability", ylabel="Observed break rate", xlim=(0, lim), ylim=(0, lim))
-    ax.set_title("Calibration by score quintile, test" + note, loc="left", fontsize=10); ax.legend(fontsize=8)
-    fig.savefig(fig_dir / "calibration.png"); plt.close(fig)
-
-    # 4. top features (LightGBM gain share)
-    panels = [(gains_full.get("lgbm_tab"), "LightGBM tabular (full sample)")]
-    if gains_text.get("lgbm_tab_emb"):
-        panels.append((gains_text["lgbm_tab_emb"], "Tabular + keywords + embeddings (text subset)"))
-    fig, axes = plt.subplots(1, len(panels), figsize=(5.6 * len(panels), 5.2))
-    axes = np.atleast_1d(axes)
-    for ax, (g, title) in zip(axes, panels):
-        s = pd.Series(g).sort_values(ascending=False); s = 100 * s / s.sum()
-        top = s.head(15)[::-1]
-        cols = ["#d94801" if n.startswith(("emb_", "tfidf_")) else "#fdae6b" if n.startswith(("kw_", "log_press", "log_agreement", "has_agreement")) else "#08519c" for n in top.index]
-        ax.barh(top.index, top.values, color=cols); ax.set_xlabel("Share of total split gain (%)")
-        ax.set_title(title + note, loc="left", fontsize=10); ax.grid(axis="y", alpha=0)
-    fig.tight_layout(); fig.savefig(fig_dir / "top_features.png"); plt.close(fig)
-
-    # 5. lift chart: cumulative share of breaks captured
-    fig, ax = plt.subplots(figsize=(5.4, 4.4))
-    for m in ladder:
-        order = np.argsort(-P[m], kind="stable")
-        ax.plot(np.arange(1, len(y) + 1) / len(y), np.cumsum(y[order]) / y.sum(), color=colors[m], lw=1.6, label=short[m])
-    ax.plot([0, 1], [0, 1], color="#9e9e9e", ls="--", lw=1, label="random")
-    for x in (0.1, 0.2):
-        ax.axvline(x, color="k", lw=0.6, ls=":")
-    ax.set(xlabel="Share of deals flagged (riskiest first)", ylabel="Share of breaks captured", xlim=(0, 1), ylim=(0, 1))
-    ax.set_title("Cumulative breaks captured, test" + note, loc="left", fontsize=10); ax.legend(fontsize=7.5, loc="lower right")
-    fig.savefig(fig_dir / "lift_chart.png"); plt.close(fig)
+def nice(name: str) -> str:
+    return FEATURE_TEXT.get(name, name.replace("_", " "))
 
 
 # ----------------------------------------------------------------------------- main
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--tag", default="real")
+    ap.add_argument("--quick", action="store_true", help="primary run only, fewer bootstrap draws (debugging)")
     args = ap.parse_args()
     synthetic = args.tag != "real"
     suffix = "" if not synthetic else f"_{args.tag}"
-    res_dir = ROOT / ("results" if not synthetic else f"results_{args.tag}")
-    fig_dir = ROOT / ("figures" if not synthetic else f"figures_{args.tag}")
-    res_dir.mkdir(exist_ok=True); fig_dir.mkdir(exist_ok=True)
+    res = ROOT / ("results" if not synthetic else f"results_{args.tag}")
+    fig = ROOT / ("figures" if not synthetic else f"figures_{args.tag}")
+    res.mkdir(exist_ok=True); fig.mkdir(exist_ok=True)
+    n_boot = 300 if args.quick else N_BOOT
     t0 = time.time()
 
     def log(msg):
         print(f"[{time.time() - t0:6.0f}s] {msg}", flush=True)
 
-    D = load_data(suffix)
-    idx = np.arange(len(D.y))
-    tr_full, te_full = idx[D.year <= TRAIN_END], idx[D.year >= TEST_START]
-    tr_text, te_text = tr_full[D.has_text[tr_full]], te_full[D.has_text[te_full]]
-    have_text = len(tr_text) > 50 and len(te_text) > 20 and D.y[te_text].sum() >= 2
-    log(f"full sample: train {len(tr_full)} ({D.y[tr_full].sum()} breaks), test {len(te_full)} ({D.y[te_full].sum()} breaks)")
-    log(f"text subset: train {len(tr_text)} ({D.y[tr_text].sum()} breaks), test {len(te_text)} ({D.y[te_text].sum()} breaks)")
+    D = M.load_data(suffix)
+    idx = np.arange(len(D.year))
+    log(f"{len(idx)} deals; extended={D.extended} market={D.has_market} llm={D.L is not None} ft={list(D.ft)} prices={D.PF is not None}; "
+        f"core sample {int(D.core.sum())}, text {int(D.has_text.sum())}")
 
-    log("ladder on the full sample")
-    P_full, I_full, G_full = run_ladder(D, tr_full, te_full, text_models=False, full_extras=True, log=log)
-    P_text, I_text, G_text = {}, {}, {}
-    if have_text:
-        log("ladder on the text subset")
-        P_text, I_text, G_text = run_ladder(D, tr_text, te_text, text_models=True, full_extras=False, log=log)
+    out = {"tag": args.tag, "n_bootstrap": n_boot, "runs": {}, "sample": {
+        "n_spec": int(len(idx)), "n_core": int(D.core.sum()), "reverse_mergers": int((~D.core).sum()),
+        "reverse_mergers_test": int(((~D.core) & (D.year >= M.TEST_START)).sum()),
+        "reverse_merger_breaks_test": int((D.y["label"][(~D.core) & (D.year >= M.TEST_START)]).sum())}}
+    pred = pd.DataFrame({"deal_id": D.deals["deal_id"], "year": D.year, "core": D.core, "has_text": D.has_text,
+                         "label": D.y["label"], "label_adverse": D.y["label_adverse"], "outcome3": D.outcome3})
+    keep, cols = {}, {}
+    run_keys = ["primary"] if args.quick else list(RUNS)
+    for rk in run_keys:
+        target, sample, title = RUNS[rk]
+        y = D.y[target]
+        mask = D.core if sample == "core" else np.ones(len(idx), bool)
+        R = {"target": target, "sample": sample, "title": title}
+        for subset in ("full", "text"):
+            sm = mask & (D.has_text if subset == "text" else True)
+            tr, te = idx[sm & (D.year <= M.TRAIN_END)], idx[sm & (D.year >= M.TEST_START)]
+            if len(tr) < 60 or y[te].sum() < 2 or y[tr].sum() < 8:
+                continue
+            log(f"{rk} / {subset}: train {len(tr)} ({int(y[tr].sum())} pos), test {len(te)} ({int(y[te].sum())} pos)")
+            P, I, G, O, feats = run_ladder(D, target, tr, te, subset, reduced=(rk != "primary"), log=log)
+            ci, diffs = M.bootstrap(y[te], P, PAIRS_FULL if subset == "full" else PAIRS_TEXT, n_boot=n_boot)
+            R[subset] = {"n_train": int(len(tr)), "pos_train": int(y[tr].sum()), "n_test": int(len(te)), "pos_test": int(y[te].sum()),
+                         "metrics": {m: M.metrics(y[te], p) for m, p in P.items()}, "ci95": ci, "paired_differences": diffs, "selection": I}
+            keep[(rk, subset)] = dict(P=P, I=I, G=G, O=O, feats=feats, tr=tr, te=te, ci=ci, diffs=diffs)
+            for m, p in P.items():
+                col = np.full(len(idx), np.nan); col[te] = p; cols[f"pred__{rk}__{subset}__{m}"] = col
+            for m, (oi, op) in O.items():
+                if len(op):
+                    col = np.full(len(idx), np.nan); col[oi] = op; cols[f"oof__{rk}__{subset}__{m}"] = col
+        out["runs"][rk] = R
+    pred = pd.concat([pred, pd.DataFrame(cols, index=pred.index)], axis=1)
 
-    y_full, y_text = D.y[te_full], D.y[te_text]
-    log("bootstrap")
-    ci_full, diff_full = bootstrap(y_full, P_full, [("lgbm_tab", "logit_tab"), ("lgbm_tab", "one_rule"),
-                                                    ("lgbm_tab_hastext", "lgbm_tab"), ("lgbm_full_text", "lgbm_tab"),
-                                                    ("lgbm_tab_suspects", "lgbm_tab"), ("lgbm_tab_imputed", "lgbm_tab")])
-    ci_text, diff_text = ({}, {})
-    if have_text:
-        ci_text, diff_text = bootstrap(y_text, P_text, [("lgbm_tab_emb", "lgbm_tab"), ("lgbm_tab_tfidf", "lgbm_tab"),
-                                                        ("lgbm_tab_kw", "lgbm_tab"), ("lgbm_tab", "logit_tab")])
+    # ------------------------------------------------------------------ final model choice (CV only, never the test set)
+    pf = keep[("primary", "full")]
+    cands = [m for m in ("lgbm_base", "lgbm_ext", "lgbm_extm") if m in pf["I"]]
+    final_tab = max(cands, key=lambda m: pf["I"][m]["cv_auc"])
+    cands2 = cands + [m for m in ("lgbm_full_text",) if m in pf["I"]]
+    final = max(cands2, key=lambda m: pf["I"][m]["cv_auc"])
+    out["final_models"] = {"tabular": final_tab, "overall": final, "rule": "highest CV AUC on the training years (full sample, primary run)",
+                           "cv_auc": {m: pf["I"][m]["cv_auc"] for m in cands2}}
+    log(f"final tabular model: {final_tab}; final overall: {final}")
+    y = D.y["label_adverse"]; tr, te = pf["tr"], pf["te"]
 
-    # ---- robustness: drop test deals that resolved within 10 days of announcement
-    days_out = (D.deals["closed_date"].fillna(D.deals["cancelled_date"]) - D.deals["announced_date"]).dt.days.to_numpy()
-    robust = {}
-    for name, te, P in (("full", te_full, P_full), ("text", te_text, P_text)):
-        if not P:
+    # ------------------------------------------------------------------ calibration (fitted on validation predictions only)
+    cal = {}
+    for m in dict.fromkeys([final_tab, final, "logit_base"]):
+        oi, op = pf["O"][m]
+        f = M.platt(op, y[oi])
+        raw, adj = pf["P"][m], f(pf["P"][m])
+        cc = np.full(len(idx), np.nan); cc[te] = adj
+        pred[f"cal__primary__full__{m}"] = cc
+
+        def ece(p):
+            q = pd.qcut(pd.Series(p).rank(method="first"), 5, labels=False).to_numpy()
+            return float(sum(abs(p[q == b].mean() - y[te][q == b].mean()) * (q == b).mean() for b in range(5)))
+        cal[m] = {"brier_raw": M.metrics(y[te], raw)["brier"], "brier_calibrated": M.metrics(y[te], adj)["brier"],
+                  "mean_pred_raw": float(raw.mean()), "mean_pred_calibrated": float(adj.mean()), "observed_rate": float(y[te].mean()),
+                  "ece5_raw": ece(raw), "ece5_calibrated": ece(adj), "n_validation_predictions": int(len(op)),
+                  "validation_positives": int(y[oi].sum())}
+        keep[("cal", m)] = (raw, adj, f)
+    out["calibration"] = cal
+
+    extras = {}
+    if not args.quick:
+        # -------------------------------------------------------------- ablation by feature group (text subset)
+        if ("primary", "text") in keep and "lgbm_alltext" in keep[("primary", "text")]["feats"]:
+            kt = keep[("primary", "text")]
+            _, full_feat, bp = kt["feats"]["lgbm_alltext"]
+            ttr, tte = kt["tr"], kt["te"]
+            groups = {"deal_terms": dict(g=("deal_terms", "advisors")), "premium_price": dict(g=("premium_price",)), "conditions": dict(g=("conditions",)),
+                      "financials": dict(g=("financials",)), "market_context": dict(g=("market_context",)), "kw": dict(kw=True),
+                      "tfidf": dict(tfidf=True), "emb": dict(emb=True), "llm_terms": dict(llm=True)}
+            AP = {"all groups": kt["P"]["lgbm_alltext"]}
+            for gname, spec in groups.items():
+                drop_groups = tuple(g for g in full_feat.groups if g not in spec.get("g", ()))
+                f_drop = Feat(groups=drop_groups, year=full_feat.year, kw=full_feat.kw and not spec.get("kw"), tfidf=full_feat.tfidf and not spec.get("tfidf"),
+                              emb=full_feat.emb and not spec.get("emb"), llm=full_feat.llm and not spec.get("llm"))
+                f_only = Feat(groups=tuple(g for g in full_feat.groups if g in spec.get("g", ())), kw=bool(spec.get("kw")) and full_feat.kw,
+                              tfidf=bool(spec.get("tfidf")) and full_feat.tfidf, emb=bool(spec.get("emb")) and full_feat.emb, llm=bool(spec.get("llm")) and full_feat.llm)
+                if f_drop == full_feat:
+                    continue
+                AP[f"without {gname}"] = M.fit_lgbm(D, y, f_drop, ttr, tte, bp)[0]
+                AP[f"only {gname}"] = M.fit_lgbm(D, y, f_only, ttr, tte, bp)[0]
+                log(f"ablation {gname} done")
+            aci, adiff = M.bootstrap(y[tte], AP, [("all groups", k) for k in AP if k.startswith("without")], n_boot=n_boot)
+            extras["ablation"] = {"metrics": {k: M.metrics(y[tte], p) for k, p in AP.items()}, "ci95": aci, "drop_one": adiff,
+                                  "params": list(bp), "n_test": int(len(tte)), "pos_test": int(y[tte].sum())}
+
+        # -------------------------------------------------------------- rolling-origin evaluation (full core sample)
+        ro = []
+        ro_models = [m for m in ("logit_base", "lgbm_base", "lgbm_extm", "lgbm_full_text") if m in pf["feats"]]
+        core_idx = idx[D.core]
+        for T in range(2012, 2024):
+            rtr, rte = core_idx[D.year[core_idx] <= T], core_idx[(D.year[core_idx] > T) & (D.year[core_idx] <= T + 2)]
+            if y[rte].sum() < 3 or y[rtr].sum() < 20:
+                continue
+            row = {"T": T, "test_years": f"{T + 1}-{min(T + 2, 2025)}", "n_train": int(len(rtr)), "n_test": int(len(rte)), "pos_test": int(y[rte].sum())}
+            for m in ro_models:
+                kind, ft, par = pf["feats"][m]
+                if kind == "logit":
+                    A, B, _ = M.design_logit(D, ft, rtr, rte)
+                    p = LogisticRegression(C=par, max_iter=3000).fit(A, y[rtr]).predict_proba(B)[:, 1]
+                else:
+                    p = M.fit_lgbm(D, y, ft, rtr, rte, par)[0]
+                row[m] = M.metrics(y[rte], p)
+            ro.append(row); log(f"rolling origin T={T} done")
+        extras["rolling_origin"] = ro
+
+        # -------------------------------------------------------------- SHAP for the final tabular model
+        kind, ft, bp = pf["feats"][final_tab]
+        p, gains, models, A, B, names = M.fit_lgbm(D, y, ft, tr, te, bp, return_models=True)
+        contrib = np.mean([m.booster_.predict(B, pred_contrib=True) for m in models], axis=0)[:, :-1]
+        imp = np.abs(contrib).mean(0)
+        top = np.argsort(-imp)[:15]
+        shap_rows = []
+        for j in top:
+            v = B[:, j]; ok = np.isfinite(v)
+            rho = float(pd.Series(v[ok]).corr(pd.Series(contrib[ok, j]), method="spearman")) if ok.sum() > 20 and np.nanstd(v[ok]) > 0 else float("nan")
+            shap_rows.append({"feature": names[j], "mean_abs_shap": float(imp[j]), "direction_rho": rho, "share_missing": float(1 - ok.mean())})
+        extras["shap"] = {"model": final_tab, "rows": shap_rows, "total_mean_abs": float(imp.sum())}
+        keep["shap"] = (contrib, B, names, top)
+        # artefacts for the demo (git-ignored)
+        art = ROOT / "artifacts"; art.mkdir(exist_ok=True)
+        with open(art / "final_tabular_shap.pkl", "wb") as fh:
+            pickle.dump({"deal_id": D.deals["deal_id"].to_numpy()[te], "contrib": contrib.astype(np.float32), "names": names,
+                         "values": B.astype(np.float32)}, fh)
+
+        # -------------------------------------------------------------- three-class view
+        cls_map = {"closed": 0, "topped": 1, "adverse_break": 2}
+        y3 = np.array([cls_map.get(c, 0) for c in D.outcome3])
+        if (y3[tr] == 1).sum() >= 10 and (y3[te] == 1).sum() >= 3:
+            A3, B3, _ = M.design_tree(D, ft, tr, te)
+            p3 = np.zeros((len(te), 3))
+            for seed in M.SEEDS:
+                kw = {k: v for k, v in M.LGBM_BASE.items() if k != "objective"}
+                p3 += LGBMClassifier(objective="multiclass", num_leaves=bp[0], n_estimators=bp[1], random_state=seed, **kw).fit(A3, y3[tr]).predict_proba(B3) / len(M.SEEDS)
+            rng = np.random.default_rng(0)
+            tc = {"counts_train": {k: int((y3[tr] == v).sum()) for k, v in cls_map.items()}, "counts_test": {k: int((y3[te] == v).sum()) for k, v in cls_map.items()}, "ovr_auc": {}}
+            for k, v in cls_map.items():
+                yb = (y3[te] == v).astype(int)
+                bs = []
+                for _ in range(1000):
+                    ix = rng.integers(0, len(te), len(te))
+                    if 0 < yb[ix].sum() < len(ix):
+                        bs.append(roc_auc_score(yb[ix], p3[ix, v]))
+                tc["ovr_auc"][k] = {"auc": float(roc_auc_score(yb, p3[:, v])), "ci95": [float(np.percentile(bs, 2.5)), float(np.percentile(bs, 97.5))]}
+            tc["mean_binary_score_by_class"] = {k: float(pf["P"][final_tab][y3[te] == v].mean()) for k, v in cls_map.items()}
+            tc["mean_p3_by_class"] = {k: [float(x) for x in p3[y3[te] == v].mean(0)] for k, v in cls_map.items()}
+            extras["three_class"] = tc
+            for j, k in enumerate(["p3_closed", "p3_topped", "p3_adverse"]):
+                pred[k] = np.nan; pred.loc[te, k] = p3[:, j]
+
+        # -------------------------------------------------------------- robustness
+        rb = {}
+        kind, ftf, bpf = pf["feats"][final]
+        base_m = M.metrics(y[te], pf["P"][final])
+        rb["baseline"] = {"n_test": int(len(te)), "pos_test": int(y[te].sum()), **base_m}
+        k10 = D.days_out[te] > 10
+        rb["exclude_resolved_within_10_days (evaluation only)"] = {"n_test": int(k10.sum()), "pos_test": int(y[te][k10].sum()), **M.metrics(y[te][k10], pf["P"][final][k10])}
+        nr_tr, nr_te = tr[~D.revised[tr]], te[~D.revised[te]]
+        p_nr = M.fit_lgbm(D, y, ftf, nr_tr, nr_te, bpf)[0]
+        rb["exclude_revised_offers (train and test)"] = {"n_test": int(len(nr_te)), "pos_test": int(y[nr_te].sum()), **M.metrics(y[nr_te], p_nr)}
+        kr = ~D.revised[te]
+        rb["exclude_revised_offers (evaluation only)"] = {"n_test": int(kr.sum()), "pos_test": int(y[te][kr].sum()), **M.metrics(y[te][kr], pf["P"][final][kr])}
+        if "lgbm_imputed" in pf["P"]:
+            rb["no missingness signal (A2, median-imputed 3m)"] = {"n_test": int(len(te)), "pos_test": int(y[te].sum()), **M.metrics(y[te], pf["P"]["lgbm_imputed"])}
+        if "lgbm_suspects" in pf["P"]:
+            rb["with leakage suspects (A1)"] = {"n_test": int(len(te)), "pos_test": int(y[te].sum()), **M.metrics(y[te], pf["P"]["lgbm_suspects"])}
+        if ("adv_spec", "full") in keep and final in keep[("adv_spec", "full")]["P"]:
+            ks = keep[("adv_spec", "full")]
+            rb["sample as specified, reverse mergers included"] = {"n_test": int(len(ks["te"])), "pos_test": int(y[ks["te"]].sum()), **M.metrics(y[ks["te"]], ks["P"][final])}
+            rev = ~D.core[ks["te"]]
+            if y[ks["te"]][rev].sum() >= 3:
+                rb["reverse mergers only (model trained on the specified sample)"] = {"n_test": int(rev.sum()), "pos_test": int(y[ks["te"]][rev].sum()),
+                                                                                       **M.metrics(y[ks["te"]][rev], ks["P"][final][rev])}
+        extras["robustness"] = {"model": final, "rows": rb}
+    out["extras"] = extras
+    (res / "metrics.json").write_text(json.dumps(out, indent=2, default=float))
+    pred.to_parquet(INTERIM / f"predictions{suffix}.parquet", index=False)
+    with open(INTERIM / f"model_specs{suffix}.pkl", "wb") as fh:
+        pickle.dump({k: {"feats": v["feats"], "tr": v["tr"], "te": v["te"]} for k, v in keep.items() if isinstance(k, tuple) and k[0] in RUNS}, fh)
+
+    write_reports(D, out, keep, res, synthetic, final_tab, final)
+    make_figures(D, out, keep, fig, synthetic, final_tab, final)
+    log("done")
+
+
+def write_reports(D, out, keep, res, synthetic, final_tab, final):
+    tag = " (SYNTHETIC SAMPLE: not real results)" if synthetic else ""
+    s = out["sample"]
+    L = ["# Benchmark table" + tag, "",
+         f"Train: announcements 2001-{M.TRAIN_END}. Test: {M.TEST_START}-2025. Brackets are bootstrap 95% confidence intervals "
+         f"({out['n_bootstrap']} resamples of test deals). Hyper-parameters are chosen by expanding-window CV inside the training years.", "",
+         f"Samples: the sample as specified has {s['n_spec']:,} deals. {s['reverse_mergers']} of them are reverse mergers (de-SPACs and shell mergers), "
+         f"{s['reverse_mergers_test']} of which fall in the test period and account for {s['reverse_merger_breaks_test']} test-period breaks; the training period has almost none. "
+         f"The **core sample** ({s['n_core']:,} deals) excludes them and is the primary sample. Targets: **adverse break** = cancelled for a reason other than a superior "
+         "competing bid (primary); **any break** = cancelled.", ""]
+    for rk, R in out["runs"].items():
+        L += [f"## {R['title']}" + (" (PRIMARY)" if rk == "primary" else ""), ""]
+        for subset, title in (("text", "Text subset: deals with an announcement text"), ("full", "Full sample")):
+            if subset not in R:
+                continue
+            S = R[subset]; k = keep[(rk, subset)]
+            y = D.y[R["target"]][k["te"]]
+            L += [f"### {title} (train {S['n_train']:,} deals / {S['pos_train']} positives, test {S['n_test']:,} deals / {S['pos_test']} positives)", ""]
+            L += table(y, k["P"], k["ci"], ORDER_TEXT if subset == "text" else ORDER_FULL) + [""]
+            if rk in ("primary", "any_spec"):
+                L += ["Paired differences (same bootstrap resamples):", ""] + diff_table(k["diffs"]) + [""]
+            L += [f"One-rule benchmark chosen by CV: \"{S['selection']['one_rule']['rule']}\".", ""]
+    L += [f"Final models (chosen by CV AUC on the training years, primary run, full sample): tabular = {LABELS[final_tab]}; overall = {LABELS[final]}.", ""]
+    (res / "benchmark_table.md").write_text("\n".join(L) + "\n")
+
+    ex = out.get("extras", {})
+    # ---- calibration
+    C = ["# Calibration" + tag, "",
+         "Platt scaling (a logistic fit on the logit of the score) is fitted on the training-period out-of-fold predictions only "
+         "(validation blocks 2007-2018) and then applied to the test predictions. Target: adverse break, core sample.", "",
+         "| Model | Validation predictions (positives) | Mean predicted, raw | Mean predicted, calibrated | Observed test rate | Brier raw | Brier calibrated | ECE (5 bins) raw | ECE calibrated |",
+         "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    for m, c in out.get("calibration", {}).items():
+        C.append(f"| {LABELS[m]} | {c['n_validation_predictions']} ({c['validation_positives']}) | {c['mean_pred_raw']:.3f} | {c['mean_pred_calibrated']:.3f} | "
+                 f"{c['observed_rate']:.3f} | {c['brier_raw']:.4f} | {c['brier_calibrated']:.4f} | {c['ece5_raw']:.3f} | {c['ece5_calibrated']:.3f} |")
+    C += ["", "See `figures/calibration.png` for the reliability plot (quintile bins with 95% intervals).", ""]
+    (res / "calibration.md").write_text("\n".join(C) + "\n")
+    if not ex:
+        return
+    # ---- ablation
+    if "ablation" in ex:
+        a = ex["ablation"]
+        A = ["# Ablation by feature group" + tag, "",
+             f"Text subset, core sample, adverse-break target (test: {a['n_test']} deals, {a['pos_test']} adverse breaks). The reference is LightGBM on all groups "
+             f"(model 5A) with its CV-selected hyper-parameters (num_leaves {a['params'][0]}, {a['params'][1]} trees), kept fixed for every row. "
+             "\"Without\" drops one group from the full model; \"only\" trains on that group alone. Brackets: bootstrap 95% intervals.", "",
+             "| Feature group | AUC of the group alone | AUC without the group | Loss in AUC when dropped (all minus without) |", "|---|---|---|---|"]
+        allm = a["metrics"]["all groups"]["roc_auc"]
+        for g in ["deal_terms", "premium_price", "conditions", "financials", "market_context", "kw", "tfidf", "emb", "llm_terms"]:
+            if f"without {g}" not in a["metrics"]:
+                continue
+            d = a["drop_one"][f"all groups minus without {g}"]["roc_auc"]
+            A.append(f"| {F.GROUP_LABELS[g]} | {fmt_ci(a['metrics'][f'only {g}']['roc_auc'], a['ci95'][f'only {g}']['roc_auc'])} | "
+                     f"{fmt_ci(a['metrics'][f'without {g}']['roc_auc'], a['ci95'][f'without {g}']['roc_auc'])} | {d['point']:+.3f} [{d['ci95'][0]:+.3f}, {d['ci95'][1]:+.3f}] |")
+        A += ["", f"All groups together: AUC {fmt_ci(allm, a['ci95']['all groups']['roc_auc'])}.",
+              "The market-spread group is dated t1 (up to a month after announcement) and is evaluated separately on the price-covered subset in `results/market_benchmark.md`.", ""]
+        (res / "ablation.md").write_text("\n".join(A) + "\n")
+    # ---- rolling origin
+    if ex.get("rolling_origin"):
+        ro = ex["rolling_origin"]; ms = [m for m in ("logit_base", "lgbm_base", "lgbm_extm", "lgbm_full_text") if m in ro[0]]
+        Rr = ["# Rolling-origin evaluation" + tag, "",
+              "Train on announcements through year T, test on T+1 to T+2, for T = 2012 to 2023. Core sample, adverse-break target, full sample "
+              "(text features missing where a deal has no text). Hyper-parameters are those selected in the main run (training years 2001-2018) and are held "
+              "fixed across origins, so origins before 2018 carry a mild look-ahead in the hyper-parameters only; all model fitting uses data up to T.", "",
+              "| Train through | Test years | Test deals | Adverse breaks | " + " | ".join(f"AUC {SHORT[m]}" for m in ms) + " | " + " | ".join(f"Top-20% capture {SHORT[m]}" for m in ms) + " |",
+              "|---|---|---:|---:|" + "---:|" * (2 * len(ms))]
+        for r in ro:
+            Rr.append(f"| {r['T']} | {r['test_years']} | {r['n_test']} | {r['pos_test']} | " + " | ".join(f"{r[m]['roc_auc']:.3f}" for m in ms) + " | "
+                      + " | ".join(f"{r[m]['capture_top20']:.2f}" for m in ms) + " |")
+        Rr.append("| **Mean** | | | | " + " | ".join(f"**{np.mean([r[m]['roc_auc'] for r in ro]):.3f}**" for m in ms) + " | "
+                  + " | ".join(f"**{np.mean([r[m]['capture_top20'] for r in ro]):.2f}**" for m in ms) + " |")
+        Rr.append("| Std. dev. across origins | | | | " + " | ".join(f"{np.std([r[m]['roc_auc'] for r in ro]):.3f}" for m in ms) + " | "
+                  + " | ".join(f"{np.std([r[m]['capture_top20'] for r in ro]):.2f}" for m in ms) + " |")
+        wins = {m: sum(r[m]["roc_auc"] > r["logit_base"]["roc_auc"] for r in ro) for m in ms if m != "logit_base"}
+        Rr += ["", "Origins overlap (each test year appears in two windows), so the rows are not independent. "
+               + "; ".join(f"{SHORT[m]} beats the logistic benchmark in {w} of {len(ro)} origins" for m, w in wins.items()) + ".",
+               "Model keys: " + "; ".join(f"{SHORT[m]} = {LABELS[m].split('. ', 1)[1]}" for m in ms) + ".", ""]
+        (res / "rolling_origin.md").write_text("\n".join(Rr) + "\n")
+    # ---- SHAP
+    if "shap" in ex:
+        sh = ex["shap"]
+        S_ = ["# SHAP reading of the tabular model" + tag, "",
+              f"Model: {LABELS[sh['model']]}, trained on 2001-2018 (core sample, adverse-break target). TreeSHAP values on the test deals, averaged over the five seeds. "
+              "Mean |SHAP| is in log-odds units. Direction is the rank correlation between the feature value and its SHAP value on the test deals: "
+              "positive means higher values push the predicted break risk up.", "",
+              "| Rank | Feature | Mean abs. SHAP | Share of total | Direction | Plain reading |", "|---:|---|---:|---:|---|---|"]
+        for i, r in enumerate(sh["rows"], 1):
+            rho = r["direction_rho"]
+            if rho != rho:
+                direction, reading = "n/a", f"{nice(r['feature'])}: effect not monotone or feature mostly missing"
+            elif abs(rho) < 0.25:
+                direction, reading = "mixed", f"{nice(r['feature'])}: matters, but not in one direction (interaction or U-shape)"
+            else:
+                direction = "higher = riskier" if rho > 0 else "higher = safer"
+                reading = f"{'More / higher' if rho > 0 else 'Less / lower'} {nice(r['feature'])} goes with higher predicted break risk"
+            S_.append(f"| {i} | `{r['feature']}` | {r['mean_abs_shap']:.3f} | {r['mean_abs_shap'] / sh['total_mean_abs']:.0%} | {direction} (rho {rho:+.2f}) | {reading} |")
+        S_ += ["", "These are associations the model uses, not causal effects. Features with many missing values also carry a missingness signal "
+               "(see `results/robustness.md`). Figure: `figures/shap_summary.png`.", ""]
+        (res / "shap.md").write_text("\n".join(S_) + "\n")
+    # ---- three-class
+    if "three_class" in ex:
+        tc = ex["three_class"]
+        T_ = ["# Three-class view: closes, topped by a higher bid, adverse break" + tag, "",
+              "A multiclass LightGBM with the features and hyper-parameters of the final tabular model, trained on 2001-2018 (core sample).", "",
+              "| Class | Train deals | Test deals | One-vs-rest AUC on test [95% CI] | Mean binary adverse-break score |", "|---|---:|---:|---|---:|"]
+        for k, lab in (("closed", "Closes"), ("topped", "Topped by a higher bid"), ("adverse_break", "Adverse break")):
+            a = tc["ovr_auc"][k]
+            T_.append(f"| {lab} | {tc['counts_train'][k]} | {tc['counts_test'][k]} | {a['auc']:.3f} [{a['ci95'][0]:.3f}, {a['ci95'][1]:.3f}] | {tc['mean_binary_score_by_class'][k]:.3f} |")
+        T_ += ["", "Mean predicted class probabilities by true class (rows: true class; columns: P(closes), P(topped), P(adverse)):", "",
+               "| True class | P(closes) | P(topped) | P(adverse) |", "|---|---:|---:|---:|"]
+        for k, lab in (("closed", "Closes"), ("topped", "Topped"), ("adverse_break", "Adverse break")):
+            T_.append(f"| {lab} | " + " | ".join(f"{v:.3f}" for v in tc["mean_p3_by_class"][k]) + " |")
+        T_ += ["", "Topped deals are good outcomes for an arbitrageur (the price usually rises), which is why the adverse-break target excludes them. "
+               "The number of topped deals in the test period is small, so its AUC interval is wide.", ""]
+        (res / "three_class.md").write_text("\n".join(T_) + "\n")
+    # ---- robustness
+    if "robustness" in ex:
+        rb = ex["robustness"]
+        Rb = ["# Robustness checks" + tag, "", f"Model: {LABELS[rb['model']]}, adverse-break target, test period 2019-2025.", "",
+              "| Variant | Test deals | Adverse breaks | ROC AUC | PR AUC | Breaks in riskiest 10% | Breaks in riskiest 20% |", "|---|---:|---:|---:|---:|---:|---:|"]
+        for k, r in rb["rows"].items():
+            Rb.append(f"| {k} | {r['n_test']} | {r['pos_test']} | {r['roc_auc']:.3f} | {r['pr_auc']:.3f} | {r['capture_top10']:.2f} | {r['capture_top20']:.2f} |")
+        Rb += ["", "- *Revised offers*: deals whose Capital IQ notes mention a raised, lowered or amended offer after announcement. For these the exported price, premium and "
+               "value can be final terms. Excluding them removes that possible look-ahead.",
+               "- *Resolved within 10 days*: deals that closed or were cancelled almost immediately, where the text window could overlap the outcome.",
+               "- *No missingness signal*: Capital IQ fills fewer fields for cancelled deals, so missing values are themselves predictive. A2 removes that signal.",
+               "- *Leakage suspects*: Deal Responses and Deal Attitude can be updated after announcement; A1 shows what they would add.", ""]
+        (res / "robustness.md").write_text("\n".join(Rb) + "\n")
+    # ---- segments
+    if ("primary", "full") in keep:
+        k = keep[("primary", "full")]; te = k["te"]; y = D.y["label_adverse"][te]
+        Xte = D.X.iloc[te]
+        seg_cs = F.cash_stock_segment(Xte).reset_index(drop=True)
+        dv = D.deals["deal_value"].to_numpy()
+        cuts = np.quantile(dv[k["tr"]], [1 / 3, 2 / 3])
+        seg_size = pd.Series(np.select([dv[te] <= cuts[0], dv[te] <= cuts[1]], [f"small (<= ${cuts[0]:,.0f}m)", f"mid (<= ${cuts[1]:,.0f}m)"], f"large (> ${cuts[1]:,.0f}m)"))
+        yr = D.year[te]
+        seg_per = pd.Series(np.select([yr <= 2020, yr <= 2022], ["2019-2020", "2021-2022"], "2023-2025"))
+        fb = D.X["buyer_financial"].iloc[te].to_numpy() if "buyer_financial" in D.X else np.zeros(len(te))
+        seg_buyer = pd.Series(np.where(fb == 1, "financial buyer", "strategic / other"))
+        ms = [m for m in ("logit_base", "lgbm_base", final_tab, final) if m in k["P"]]
+        ms = list(dict.fromkeys(ms))
+        SL = ["# Segment results on the test set" + tag, "",
+              "Core sample, adverse-break target. AUC and capture are computed inside each segment; segments with fewer than 5 adverse breaks show n/a. "
+              "Segment numbers rest on few breaks and are noisy. Deal-size terciles use cut-offs from the training years.", ""]
+        for title, seg in (("consideration", seg_cs), ("deal size tercile", seg_size), ("period", seg_per), ("buyer type", seg_buyer)):
+            SL += [f"## By {title}", "", "| Segment | Deals | Adverse breaks | Rate | " + " | ".join(f"AUC {SHORT[m]}" for m in ms) + " | "
+                   + " | ".join(f"Top-20% capture {SHORT[m]}" for m in ms) + " |", "|---|---:|---:|---:|" + "---:|" * (2 * len(ms))]
+            for sname in list(pd.unique(seg)):
+                mk = (seg == sname).to_numpy(); yy = y[mk]
+                aucs = [f"{M.auc_safe(yy, k['P'][m][mk]):.3f}" if yy.sum() >= 5 else "n/a" for m in ms]
+                caps = [f"{M.capture_at(yy, k['P'][m][mk], 0.2):.2f}" if yy.sum() >= 5 else "n/a" for m in ms]
+                SL.append(f"| {sname} | {mk.sum()} | {int(yy.sum())} | {yy.mean():.1%} | " + " | ".join(aucs) + " | " + " | ".join(caps) + " |")
+            SL.append("")
+        SL += ["Model keys: " + "; ".join(f"{SHORT[m]} = {LABELS[m].split('. ', 1)[1]}" for m in ms) + ".", ""]
+        (res / "segments.md").write_text("\n".join(SL) + "\n")
+
+
+def make_figures(D, out, keep, fig, synthetic, final_tab, final):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False, "figure.dpi": 150,
+                         "savefig.bbox": "tight", "axes.grid": True, "grid.alpha": 0.25})
+    note = " (synthetic sample)" if synthetic else ""
+    col = {"one_rule": "#bdbdbd", "logit_base": "#6baed6", "lgbm_base": "#3182bd", "lgbm_extm": "#08306b", "lgbm_tfidf": "#fdae6b",
+           "lgbm_emb": "#f16913", "lgbm_llm": "#a63603", "lgbm_alltext": "#7f2704", "tfidf_logit": "#74c476", "ft_encoder": "#238b45",
+           "lgbm_full_text": "#f16913", "lgbm_ext": "#6a51a3"}
+    short = {"one_rule": "1 one rule", "logit_base": "2 logistic, base tabular", "lgbm_base": "3 LightGBM, base tabular", "lgbm_ext": "3x + extended features",
+             "lgbm_extm": "3m + extended + market", "lgbm_tfidf": "4 + TF-IDF", "lgbm_emb": "5 + embeddings", "lgbm_llm": "5L + LLM terms",
+             "lgbm_alltext": "5A + all text", "tfidf_logit": "6a text only (TF-IDF)", "ft_encoder": "6c text only (fine-tuned)", "lgbm_full_text": "5f + text (full sample)"}
+
+    # 1. deals and break rates by year
+    g = D.deals.assign(core=D.core, adv=D.y["label_adverse"]).groupby("year").agg(n=("label", "size"), any=("label", "mean"))
+    gc = D.deals.assign(adv=D.y["label_adverse"])[D.core].groupby("year").agg(n=("label", "size"), adv=("adv", "mean"), any=("label", "mean"))
+    f_, ax = plt.subplots(figsize=(8.4, 3.8))
+    ax.bar(g.index, g["n"], color="#deebf7", label="Deals, sample as specified")
+    ax.bar(gc.index, gc["n"], color="#9ecae1", label="Deals, core sample")
+    ax.set_ylabel("Deals announced"); ax.set_xlabel("Announcement year")
+    ax2 = ax.twinx(); ax2.spines["right"].set_visible(True); ax2.grid(False)
+    ax2.plot(g.index, 100 * g["any"], color="#9e9e9e", marker="o", ms=3, lw=1.2, label="Any break, as specified (%)")
+    ax2.plot(gc.index, 100 * gc["any"], color="#3182bd", marker="o", ms=3, lw=1.2, label="Any break, core (%)")
+    ax2.plot(gc.index, 100 * gc["adv"], color="#a63603", marker="o", ms=3, lw=1.6, label="Adverse break, core (%)")
+    ax2.set_ylabel("Break rate (%)"); ax2.set_ylim(0, max(16, 100 * g["any"].max() * 1.15))
+    ax.axvline(M.TRAIN_END + 0.5, color="k", ls="--", lw=1)
+    h1, l1 = ax.get_legend_handles_labels(); h2, l2 = ax2.get_legend_handles_labels()
+    ax.legend(h1 + h2, l1 + l2, fontsize=7, loc="upper left", ncol=2, frameon=False)
+    ax.set_title("Deals and break rates by announcement year (dashed line: train / test split)" + note, loc="left", fontsize=10)
+    f_.savefig(fig / "break_rate_by_year.png"); plt.close(f_)
+
+    kt = keep.get(("primary", "text")) or keep[("primary", "full")]
+    y = D.y["label_adverse"][kt["te"]]; P = kt["P"]
+    ladder = [m for m in ["one_rule", "logit_base", "lgbm_base", "lgbm_extm", "lgbm_tfidf", "lgbm_emb", "lgbm_llm", "lgbm_alltext", "tfidf_logit", "ft_encoder"] if m in P]
+    # 2. ROC / PR
+    f_, axes = plt.subplots(1, 2, figsize=(10.5, 4.4))
+    for m in ladder:
+        fpr, tpr, _ = roc_curve(y, P[m]); pr, rc, _ = precision_recall_curve(y, P[m])
+        axes[0].plot(fpr, tpr, color=col[m], lw=1.5, label=f"{short[m]} ({roc_auc_score(y, P[m]):.2f})")
+        axes[1].plot(rc, pr, color=col[m], lw=1.5, label=f"{short[m]} ({average_precision_score(y, P[m]):.2f})")
+    axes[0].plot([0, 1], [0, 1], color="#9e9e9e", ls="--", lw=1); axes[1].axhline(y.mean(), color="#9e9e9e", ls="--", lw=1)
+    axes[0].set(xlabel="False positive rate", ylabel="True positive rate"); axes[0].set_title("ROC, adverse breaks, test 2019-2025" + note, loc="left", fontsize=10)
+    axes[1].set(xlabel="Recall (share of adverse breaks found)", ylabel="Precision", ylim=(0, min(1, max(0.5, 6 * y.mean()))))
+    axes[1].set_title("Precision-recall (dashed: base rate)", loc="left", fontsize=10)
+    axes[0].legend(fontsize=7, title="ROC AUC", title_fontsize=8, loc="lower right"); axes[1].legend(fontsize=7, title="PR AUC", title_fontsize=8, loc="upper right")
+    f_.savefig(fig / "roc_pr_ladder.png"); plt.close(f_)
+
+    # 3. reliability before / after calibration
+    kf = keep[("primary", "full")]; yf = D.y["label_adverse"][kf["te"]]
+    f_, axes = plt.subplots(1, 2, figsize=(9.6, 4.3), sharey=True)
+    lim = 0.0
+    for m, c_ in ((final, "#08306b"), ("logit_base", "#6baed6")):
+        if ("cal", m) not in keep:
             continue
-        keep = days_out[te] > 10
-        robust[name] = {"n": int(keep.sum()), "breaks": int(D.y[te][keep].sum()),
-                        "metrics": {m: metrics(D.y[te][keep], p[keep]) for m, p in P.items()
-                                    if m in ("lgbm_tab", "lgbm_tab_emb", "lgbm_tab_tfidf", "lgbm_full_text")}}
+        raw, adj, _ = keep[("cal", m)]
+        for ax, p_, in ((axes[0], raw), (axes[1], adj)):
+            q = pd.qcut(pd.Series(p_).rank(method="first"), 5, labels=False).to_numpy()
+            xs = [p_[q == b].mean() for b in range(5)]; ys = [yf[q == b].mean() for b in range(5)]
+            se = [np.sqrt(max(v * (1 - v), 1e-9) / (q == b).sum()) for b, v in enumerate(ys)]
+            ax.errorbar(xs, ys, yerr=1.96 * np.array(se), color=c_, marker="o", ms=4, lw=1.4, capsize=2, label=short.get(m, m))
+            lim = max(lim, max(xs), max(ys) + 2 * max(se))
+    lim = min(1.0, lim * 1.1 + 0.01)
+    for ax, t in ((axes[0], "Raw model output"), (axes[1], "After Platt scaling fitted on validation predictions")):
+        ax.plot([0, lim], [0, lim], color="#9e9e9e", ls="--", lw=1); ax.set(xlim=(0, lim), ylim=(0, lim), xlabel="Mean predicted probability of an adverse break")
+        ax.set_title(t + note, loc="left", fontsize=10)
+    axes[0].set_ylabel("Observed adverse-break rate (test)"); axes[0].legend(fontsize=8, loc="upper left")
+    f_.savefig(fig / "calibration.png"); plt.close(f_)
 
-    # ---- tables
-    head = ["# Benchmark table" + (" (SYNTHETIC SAMPLE: not real results)" if synthetic else ""), "",
-            f"Train: announcements 2001-{TRAIN_END}. Test: {TEST_START}-2025. Brackets are bootstrap 95% confidence "
-            f"intervals ({N_BOOT} resamples of test deals). Label 1 = deal cancelled after a definitive agreement.", ""]
-    order_text = ["base_rate", "one_rule", "logit_tab", "lgbm_tab", "lgbm_tab_kw", "lgbm_tab_tfidf", "lgbm_tab_emb",
-                  "tfidf_logit", "lgbm_text_only"]
-    order_full = ["base_rate", "one_rule", "logit_tab", "lgbm_tab", "lgbm_tab_hastext", "lgbm_full_text",
-                  "lgbm_tab_suspects", "lgbm_tab_imputed"]
-    lines = list(head)
-    if have_text:
-        lines += [f"## Text subset: deals with an announcement text (train {len(tr_text)} deals / {int(D.y[tr_text].sum())} breaks, "
-                  f"test {len(te_text)} deals / {int(y_text.sum())} breaks)", "",
-                  "All rows are trained and tested on the same deals, so the text rows are comparable with the tabular rows.", ""]
-        lines += table(y_text, P_text, ci_text, order_text) + [""]
-        lines += ["### Uplift on the text subset (paired bootstrap, same resamples)", "",
-                  "| Comparison | ROC AUC | PR AUC | Brier (negative = better) | Breaks in riskiest 10% | Breaks in riskiest 20% |", "|---|---|---|---|---|---|"]
-        for k, d in diff_text.items():
-            a, b = k.split(" minus ")
-            lines.append(f"| {LABELS[a].split('.')[0]} minus {LABELS[b].split('.')[0]} | " + " | ".join(
-                f"{d[m]['point']:+.{4 if m == 'brier' else 3}f} [{d[m]['ci95'][0]:+.{4 if m == 'brier' else 3}f}, {d[m]['ci95'][1]:+.{4 if m == 'brier' else 3}f}]"
-                for m in ["roc_auc", "pr_auc", "brier", "capture_top10", "capture_top20"]) + " |")
-        lines.append("")
-    lines += [f"## Full sample (train {len(tr_full)} deals / {int(D.y[tr_full].sum())} breaks, "
-              f"test {len(te_full)} deals / {int(y_full.sum())} breaks)", ""]
-    lines += table(y_full, P_full, ci_full, order_full) + [""]
-    lines += ["### Differences on the full sample (paired bootstrap)", "",
-              "| Comparison | ROC AUC | PR AUC | Brier (negative = better) | Breaks in riskiest 10% | Breaks in riskiest 20% |", "|---|---|---|---|---|---|"]
-    for k, d in diff_full.items():
-        a, b = k.split(" minus ")
-        lines.append(f"| {LABELS[a].split('.')[0]} minus {LABELS[b].split('.')[0]} | " + " | ".join(
-            f"{d[m]['point']:+.{4 if m == 'brier' else 3}f} [{d[m]['ci95'][0]:+.{4 if m == 'brier' else 3}f}, {d[m]['ci95'][1]:+.{4 if m == 'brier' else 3}f}]"
-            for m in ["roc_auc", "pr_auc", "brier", "capture_top10", "capture_top20"]) + " |")
-    lines += ["", f"One-rule benchmark chosen by CV on the training years: full sample = \"{I_full['one_rule']['rule']}\""
-              + (f", text subset = \"{I_text['one_rule']['rule']}\"." if have_text else "."), ""]
-    (res_dir / "benchmark_table.md").write_text("\n".join(lines) + "\n")
+    # 4. top features by gain
+    panels = [(kf["G"].get(final_tab), f"{short.get(final_tab, final_tab)} (full sample)")]
+    if ("primary", "text") in keep and "lgbm_alltext" in keep[("primary", "text")]["G"]:
+        panels.append((keep[("primary", "text")]["G"]["lgbm_alltext"], "5A all groups (text subset)"))
+    f_, axes = plt.subplots(1, len(panels), figsize=(6.2 * len(panels), 5.4)); axes = np.atleast_1d(axes)
+    for ax, (g_, title) in zip(axes, panels):
+        s_ = pd.Series(g_).sort_values(ascending=False); s_ = 100 * s_ / s_.sum(); top = s_.head(15)[::-1]
+        cols = ["#d94801" if n.startswith(("emb_", "tfidf_")) else "#fdae6b" if n.startswith(("kw_", "llm_", "log_press", "log_agreement", "has_agreement"))
+                else "#6a51a3" if n.startswith("mkt_") else "#08519c" for n in top.index]
+        ax.barh(top.index, top.values, color=cols); ax.set_xlabel("Share of total split gain (%)"); ax.set_title(title + note, loc="left", fontsize=10); ax.grid(axis="y", alpha=0)
+    f_.tight_layout(); f_.savefig(fig / "top_features.png"); plt.close(f_)
 
-    # ---- segments (test set)
-    Xte = D.X.iloc[te_full]
-    seg_cs = F.cash_stock_segment(Xte).reset_index(drop=True)
-    dv = D.deals["deal_value"].to_numpy()
-    cuts = np.quantile(dv[tr_full], [1 / 3, 2 / 3])       # tercile cut-offs from the training years
-    seg_size = pd.Series(np.select([dv[te_full] <= cuts[0], dv[te_full] <= cuts[1]],
-                                   [f"small (<= ${cuts[0]:,.0f}m)", f"mid (<= ${cuts[1]:,.0f}m)"],
-                                   f"large (> ${cuts[1]:,.0f}m)"))
-    yr = D.year[te_full]
-    seg_per = pd.Series(np.select([yr <= 2020, yr <= 2022], ["2019-2020", "2021-2022"], "2023-2025"))
-    seg_lines = ["# Segment results on the test set" + (" (SYNTHETIC SAMPLE)" if synthetic else ""), "",
-                 "AUC and capture are computed inside each segment; segments with fewer than 5 breaks show n/a. "
-                 "Segment-level numbers rest on few breaks and are noisy. Deal-size terciles use cut-offs from the training years.", ""]
-    full_models = [m for m in ["logit_tab", "lgbm_tab", "lgbm_full_text"] if m in P_full]
-    for title, seg in (("Consideration", seg_cs), ("Deal size tercile (total transaction value)", seg_size), ("Period", seg_per)):
-        seg_lines += [f"## Full sample, by {title.lower()}", ""] + segment_table(seg, y_full, P_full, full_models) + [""]
-    if have_text:
-        in_text = D.has_text[te_full]
-        text_models_ = [m for m in ["lgbm_tab", "lgbm_tab_tfidf", "lgbm_tab_emb"] if m in P_text]
-        for title, seg in (("Consideration", seg_cs), ("Deal size tercile (total transaction value)", seg_size), ("Period", seg_per)):
-            seg_lines += [f"## Text subset, by {title.lower()}", ""] + \
-                segment_table(seg[in_text].reset_index(drop=True), y_text, P_text, text_models_) + [""]
-    seg_lines += ["Model keys: " + "; ".join(f"{LABELS[m].split('.')[0]} = {LABELS[m].split('. ', 1)[1]}"
-                                             for m in dict.fromkeys(full_models + (text_models_ if have_text else []))), ""]
-    (res_dir / "segments.md").write_text("\n".join(seg_lines) + "\n")
+    # 5. lift chart
+    f_, ax = plt.subplots(figsize=(5.6, 4.5))
+    for m in ladder:
+        o_ = np.argsort(-P[m], kind="stable")
+        ax.plot(np.arange(1, len(y) + 1) / len(y), np.cumsum(y[o_]) / y.sum(), color=col[m], lw=1.5, label=short[m])
+    ax.plot([0, 1], [0, 1], color="#9e9e9e", ls="--", lw=1, label="random")
+    for x in (0.1, 0.2):
+        ax.axvline(x, color="k", lw=0.6, ls=":")
+    ax.set(xlabel="Share of deals flagged (riskiest first)", ylabel="Share of adverse breaks captured", xlim=(0, 1), ylim=(0, 1))
+    ax.set_title("Cumulative adverse breaks captured, test" + note, loc="left", fontsize=10); ax.legend(fontsize=7, loc="lower right")
+    f_.savefig(fig / "lift_chart.png"); plt.close(f_)
 
-    # ---- metrics.json
-    def block_share(g):
-        s = pd.Series(g); tot = s.sum() or 1.0
-        kw = s[[n for n in s.index if n in F.KEYWORD_FEATURES]].sum()
-        tx = s[[n for n in s.index if n.startswith(("emb_", "tfidf_"))]].sum()
-        return {"tabular": float((tot - kw - tx) / tot), "keywords": float(kw / tot), "text_components": float(tx / tot)}
-
-    out = {
-        "tag": args.tag, "split": {"train_years": [2001, TRAIN_END], "test_years": [TEST_START, 2025]},
-        "full_sample": {"n_train": int(len(tr_full)), "breaks_train": int(D.y[tr_full].sum()),
-                        "n_test": int(len(te_full)), "breaks_test": int(y_full.sum()),
-                        "metrics": {m: metrics(y_full, p) for m, p in P_full.items()}, "ci95": ci_full,
-                        "paired_differences": diff_full, "selection": I_full,
-                        "gain_share_by_block": {m: block_share(g) for m, g in G_full.items()}},
-        "text_subset": {"n_train": int(len(tr_text)), "breaks_train": int(D.y[tr_text].sum()),
-                        "n_test": int(len(te_text)), "breaks_test": int(y_text.sum()),
-                        "metrics": {m: metrics(y_text, p) for m, p in P_text.items()}, "ci95": ci_text,
-                        "paired_differences": diff_text, "selection": I_text,
-                        "gain_share_by_block": {m: block_share(g) for m, g in G_text.items()}} if have_text else None,
-        "robustness_excluding_deals_resolved_within_10_days": robust,
-        "n_bootstrap": N_BOOT,
-    }
-    (res_dir / "metrics.json").write_text(json.dumps(out, indent=2, default=float))
-
-    # ---- deal-level test predictions for impact.py (not committed)
-    pred = pd.DataFrame({"deal_id": D.deals["deal_id"].to_numpy()[te_full], "year": yr, "label": y_full,
-                         "in_text_subset": D.has_text[te_full]})
-    for m, p in P_full.items():
-        pred[f"full__{m}"] = p
-    for m, p in P_text.items():
-        col = np.full(len(te_full), np.nan); col[D.has_text[te_full]] = p
-        pred[f"text__{m}"] = col
-    pred.to_parquet(INTERIM / f"test_predictions{suffix}.parquet", index=False)
-
-    make_figures(D, fig_dir, y_text, P_text, y_full, P_full, G_full, G_text, synthetic)
-    log(f"wrote {res_dir.name}/ and {fig_dir.name}/")
-    print("\n".join(lines))
+    ex = out.get("extras", {})
+    # 6. SHAP summary (beeswarm-style)
+    if "shap" in keep:
+        contrib, B, names, top = keep["shap"]
+        rng = np.random.default_rng(0)
+        f_, ax = plt.subplots(figsize=(7.4, 5.6))
+        for r, j in enumerate(top[::-1]):
+            v = B[:, j]; ok = np.isfinite(v)
+            rk = pd.Series(v[ok]).rank(pct=True).to_numpy()
+            ax.scatter(contrib[~ok, j], r + rng.uniform(-0.25, 0.25, (~ok).sum()), s=4, color="#bdbdbd", alpha=0.6, lw=0)
+            sc = ax.scatter(contrib[ok, j], r + rng.uniform(-0.25, 0.25, ok.sum()), s=4, c=rk, cmap="coolwarm", alpha=0.7, lw=0, vmin=0, vmax=1)
+        ax.set_yticks(range(len(top))); ax.set_yticklabels([names[j] for j in top[::-1]], fontsize=8)
+        ax.axvline(0, color="k", lw=0.6); ax.set_xlabel("SHAP value (log-odds of an adverse break; right = riskier)"); ax.grid(axis="y", alpha=0)
+        cb = f_.colorbar(sc, ax=ax, pad=0.01); cb.set_label("Feature value (percentile rank; grey = missing)", fontsize=8); cb.set_ticks([0, 1]); cb.set_ticklabels(["low", "high"])
+        ax.set_title("SHAP values of the tabular model on test deals" + note, loc="left", fontsize=10)
+        f_.savefig(fig / "shap_summary.png"); plt.close(f_)
+    # 7. ablation
+    if "ablation" in ex:
+        a = ex["ablation"]; gs = [g_ for g_ in ["deal_terms", "premium_price", "conditions", "financials", "market_context", "kw", "tfidf", "emb", "llm_terms"] if f"without {g_}" in a["metrics"]]
+        f_, axes = plt.subplots(1, 2, figsize=(10.5, 4.2), sharey=True)
+        ypos = np.arange(len(gs))[::-1]
+        only = [a["metrics"][f"only {g_}"]["roc_auc"] for g_ in gs]; oc = [a["ci95"][f"only {g_}"]["roc_auc"] for g_ in gs]
+        axes[0].errorbar(only, ypos, xerr=[[o - c[0] for o, c in zip(only, oc)], [c[1] - o for o, c in zip(only, oc)]], fmt="o", color="#08519c", capsize=3)
+        axes[0].axvline(0.5, color="#9e9e9e", ls="--", lw=1); axes[0].axvline(a["metrics"]["all groups"]["roc_auc"], color="k", ls=":", lw=1)
+        axes[0].set_yticks(ypos); axes[0].set_yticklabels([F.GROUP_LABELS[g_] for g_ in gs], fontsize=8); axes[0].set_xlabel("Test AUC of the group alone (dotted: all groups)")
+        d_ = [a["drop_one"][f"all groups minus without {g_}"]["roc_auc"] for g_ in gs]
+        axes[1].errorbar([x["point"] for x in d_], ypos, xerr=[[x["point"] - x["ci95"][0] for x in d_], [x["ci95"][1] - x["point"] for x in d_]], fmt="o", color="#a63603", capsize=3)
+        axes[1].axvline(0, color="k", lw=0.8); axes[1].set_xlabel("Loss in test AUC when the group is dropped")
+        axes[0].set_title("Feature groups alone" + note, loc="left", fontsize=10); axes[1].set_title("Drop-one-group", loc="left", fontsize=10)
+        for ax in axes:
+            ax.grid(axis="y", alpha=0)
+        f_.savefig(fig / "ablation_groups.png"); plt.close(f_)
+    # 8. rolling origin
+    if ex.get("rolling_origin"):
+        ro = ex["rolling_origin"]
+        f_, ax = plt.subplots(figsize=(7.6, 3.8))
+        for m in [m for m in ("logit_base", "lgbm_base", "lgbm_extm", "lgbm_full_text") if m in ro[0]]:
+            ax.plot([r["T"] for r in ro], [r[m]["roc_auc"] for r in ro], marker="o", ms=4, lw=1.5, color=col[m], label=short[m])
+        ax.axhline(0.5, color="#9e9e9e", ls="--", lw=1)
+        ax.set(xlabel="Last training year T (test on T+1 to T+2)", ylabel="Test ROC AUC, adverse breaks"); ax.legend(fontsize=7.5, ncol=2, frameon=False)
+        ax.set_title("Rolling-origin evaluation" + note, loc="left", fontsize=10)
+        f_.savefig(fig / "rolling_origin.png"); plt.close(f_)
 
 
 if __name__ == "__main__":

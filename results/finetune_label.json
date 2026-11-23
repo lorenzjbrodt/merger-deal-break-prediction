@@ -1,0 +1,39 @@
+{
+  "target": "label",
+  "model": "distilbert/distilroberta-base",
+  "device": "mps",
+  "n_train": 2584,
+  "pos_train": 177,
+  "n_val": 521,
+  "pos_val": 25,
+  "epochs": [
+    {
+      "epoch": 1,
+      "train_loss": 0.9124579765104426,
+      "val_auc": 0.6080645161290323,
+      "val_pr_auc": 0.07439249102260899,
+      "minutes": 2.970156947771708,
+      "memory_gb": 5.482971136
+    },
+    {
+      "epoch": 2,
+      "train_loss": 1.0651677542556388,
+      "val_auc": 0.5840322580645161,
+      "val_pr_auc": 0.07045882481117663,
+      "minutes": 5.760453248023987,
+      "memory_gb": 5.482971136
+    },
+    {
+      "epoch": 3,
+      "train_loss": 1.07084064496733,
+      "val_auc": 0.5656451612903226,
+      "val_pr_auc": 0.06775488201474675,
+      "minutes": 8.541028130054475,
+      "memory_gb": 5.482971136
+    }
+  ],
+  "status": "completed",
+  "best_val_auc": 0.6080645161290323,
+  "total_minutes": 9.490202248096466,
+  "peak_memory_gb": 5.482971136
+}

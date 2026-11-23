@@ -1,0 +1,35 @@
+{
+  "files": {
+    "ciq_prices_1.xls": {
+      "rows": 7969,
+      "price_columns": 96,
+      "first_date": "2018-12-20",
+      "last_date": "2026-11-20",
+      "share_cells_with_price": 0.15259129125360774
+    },
+    "ciq_prices_2.xls": {
+      "rows": 7969,
+      "price_columns": 105,
+      "first_date": "2010-03-20",
+      "last_date": "2018-11-20",
+      "share_cells_with_price": 0.2547347160723996
+    },
+    "ciq_prices_3.xls": {
+      "rows": 7969,
+      "price_columns": 111,
+      "first_date": "2000-12-20",
+      "last_date": "2010-02-20",
+      "share_cells_with_price": 0.35875164912685303
+    }
+  },
+  "grid_first": "2000-12-20",
+  "grid_last": "2026-11-20",
+  "n_grid_dates": 312,
+  "overlapping_dates": [],
+  "missing_months": [],
+  "dates_not_on_the_20th": [],
+  "grid_dates_on_weekend": 88,
+  "weekend_20th_filled_share_when_neighbours_priced": 0.9960556870326545,
+  "deals_with_any_price": 6408,
+  "rows_long": 646306
+}

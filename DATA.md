@@ -5,7 +5,7 @@ Two sources. Neither is redistributed in this repository.
 ## 1. Capital IQ transaction screen (licensed, not included)
 
 The deal table comes from S&P Capital IQ. It is licensed data and is never committed
-(`data/raw/`, `data/interim/`, `*.xls`, `*.xlsx` and `*.parquet` are git-ignored). Anyone with
+(`data/raw/`, `data/interim/`, `data/external/`, `artifacts/`, `*.xls`, `*.xlsx` and `*.parquet` are git-ignored). Anyone with
 Capital IQ access can rebuild the export with the screen below.
 
 ### Screen
@@ -69,6 +69,71 @@ row 8 of the sheet `Screening`):
 40. Security Tickers [Target/Issuer]
 41. SIC Codes (Primary Code Only) [Target/Issuer]
 
+### Extended export (used from the extended run on)
+
+The same screen and rows with 40 more display columns (81 in total), saved as `data/raw/ciq_transactions_v2.xls`.
+Add these after the 41 columns above, in this order:
+
+42. Net Assumed Liabilities ($USDmm, Historical rate)
+43. Implied Equity Value/LTM Net Income (x)
+44. Implied Equity Value/Book Value (x)
+45. Implied Enterprise Value/Revenues (x)
+46. Total Cash ($USDmm, Historical rate)
+47. Total Stock ($USDmm, Historical rate)
+48. Total Earnout/Contingent Payments ($USDmm, Historical rate)
+49. Sell-Side Termination Fee ($USDmm, Historical rate)
+50. Buy-Side Termination Fee ($USDmm, Historical rate)
+51. Acquirer LTM Return % (%)
+52. Target % of 52-Week Low (%)
+53. Acquirer % of 52-Week High (%)
+54. Acquirer Market Cap 1-Day Prior ($USDmm, Historical rate)
+55. Transaction Comments
+56. Pre-Deal Situation
+57. Deal Resolution
+58. Advisors To Target
+59. Advisors To Buyers
+60. Transaction Primary Features
+61. Transaction Secondary Features
+62. Majority / Minority Stakes
+63. Change of Control
+64. Related Transactions
+65. to 71. Target/Issuer LTM Financials (at Announcement) ($USDmm, Historical rate): Total Revenue, EBITDA, Net Income,
+    Total Common Equity, Total Debt, Total Cash & ST Investments, Total Assets
+72. to 77. Acquirer LTM Financials (at Announcement) ($USDmm, Historical rate): Total Revenue, EBITDA, Net Income,
+    Total Debt, Total Cash & ST Investments, Total Assets
+78. Primary Industry [Buyers/Investors]
+79. Primary Sector [Buyers/Investors]
+80. Buyer Type [Buyers/Investors]
+81. Company Type [Buyers/Investors]
+
+How the new columns are used:
+
+- **Model features (known at announcement):** 42-54, 58-61, 65-81. Advisor fields are reduced to the number of financial
+  and legal advisers per side and a top-adviser flag computed from training-period frequencies.
+  Caveat: buyer `Company Type` and `Buyer Type` are Capital IQ's *current* classification, not the one at announcement.
+- **Never model features (written or updated after the fact):** Transaction Comments, Pre-Deal Situation, Deal Resolution,
+  Related Transactions. They are used only to classify why a cancelled deal broke and to flag revised offers.
+- **Dropped:** Majority / Minority Stakes and Change of Control are constant in the sample. Four secondary-feature tags are
+  applied when a deal completes (for example "Squeeze Out / Short Form Merger": 428 training deals, zero breaks) and are
+  excluded as outcome-driven.
+
+### Price exports
+
+Same screen, display columns reduced to the identifiers (All Transactions Announced Date, Target/Issuer, Exchange:Ticker,
+Transaction Status, CIQ Transaction ID, M&A Announced Date, M&A Closed Date, M&A Cancelled Date) plus the target's
+**Day Close Price** on a monthly grid (the 20th of each month), `$USD, Historical rate`, 96 to 111 periods per export
+(Capital IQ limits the number of periods per screen):
+
+| File | Save as | Periods | Dates |
+|---|---|---:|---|
+| export 3 of 3 | `data/raw/ciq_prices_3.xls` | 111 | 12/20/2000 to 2/20/2010 (fixed dates) |
+| export 2 of 3 | `data/raw/ciq_prices_2.xls` | 105 | 3/20/2010 to 11/20/2018 (fixed dates) |
+| export 1 of 3 | `data/raw/ciq_prices_1.xls` | 96 | "Latest - 95 Month(s)" to "Latest" = 12/20/2018 to 11/20/2026 |
+
+`src/prices.py` parses the dates from the column headers, checks that the three files form one grid of 312 months with
+no gap or overlap, and writes a long table (deal, date, close). A non-trading 20th returns the prior close. `-` means no
+price (not yet listed, or delisted). Checks and coverage: `results/price_coverage.md`.
+
 ### Export
 
 Export **All Transactions** to Excel. The file is a legacy `.xls` workbook with three sheets
@@ -119,11 +184,28 @@ exhibits EX-99.* and EX-2.*.
 - `src/build_text.py` turns the cache into two text fields per deal, `press_release` and
   `agreement`. Coverage by year is in `results/text_coverage.md`.
 
-## 3. Synthetic sample (included)
+## 3. FRED market series (public, cached locally)
 
-`data/sample/synthetic_ciq_export.csv` has 200 **synthetic** rows with the exact 41-column
-header of the export. Values are drawn from made-up distributions by `src/make_synthetic.py`;
-no Capital IQ record is used and company names are placeholders. It exists so that
-`./run_all.sh synthetic` runs the whole pipeline without a licence. Numbers produced from it
-are meaningless and are written to `results_synthetic/` and `figures_synthetic/`, which are
-git-ignored. All results in `results/` and `figures/` come from the real export.
+`src/market_context.py` reads daily CSVs from `https://fred.stlouisfed.org/graph/fredgraph.csv?id=<ID>` saved as
+`data/external/fred/<ID>.csv` (git-ignored): VIXCLS, DBAA, DAAA, DGS10, DTB3, NASDAQCOM, SP500, BAMLH0A0HYM2.
+FRED answered only browser requests when this was built, so the files were saved through a browser.
+
+Two series do not go back far enough on FRED and are replaced by proxies:
+
+| Wanted | Problem on FRED | Used instead |
+|---|---|---|
+| S&P 500 trailing returns (`SP500`) | only the last 10 years (from November 2016) | NASDAQ Composite (`NASDAQCOM`) trailing 3- and 12-month returns |
+| High-yield OAS (`BAMLH0A0HYM2`) | only the last 3 years (from November 2023) | Moody's Baa yield minus the 10-year Treasury yield (`DBAA` - `DGS10`) |
+
+## 4. LLM outputs (derived, cached locally)
+
+Term extraction, break-reason classification and the exploratory zero-shot score are produced with headless Claude Code
+(`claude -p`) and cached per document under `data/interim/` (git-ignored). Only aggregate validation tables are committed.
+
+## 5. Synthetic sample (included)
+
+`data/sample/synthetic_ciq_export.csv` has 200 **synthetic** rows with the exact 81-column header of the extended export.
+Values are drawn from made-up distributions by `src/make_synthetic.py`; no Capital IQ record is used and company names are
+placeholders. It exists so that `./run_all.sh synthetic` runs the core pipeline (and the demo) without a licence. Numbers
+produced from it are meaningless and are written to `results_synthetic/` and `figures_synthetic/`, which are git-ignored.
+All results in `results/` and `figures/` come from the real exports.

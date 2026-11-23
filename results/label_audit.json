@@ -1,0 +1,16 @@
+{
+  "Cancelled": {
+    "confirmed": 34,
+    "consistent": 1,
+    "unclear": 0,
+    "no evidence": 3,
+    "contradicted": 2
+  },
+  "Closed": {
+    "confirmed": 38,
+    "consistent": 0,
+    "unclear": 0,
+    "no evidence": 1,
+    "contradicted": 1
+  }
+}

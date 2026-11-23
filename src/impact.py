@@ -77,29 +77,38 @@ def main() -> None:
     suffix = "" if not synthetic else f"_{args.tag}"
     res_dir = ROOT / ("results" if not synthetic else f"results_{args.tag}")
     fig_dir = ROOT / ("figures" if not synthetic else f"figures_{args.tag}")
-    P = pd.read_parquet(ROOT / f"data/interim/test_predictions{suffix}.parquet")
+    R = pd.read_parquet(ROOT / f"data/interim/predictions{suffix}.parquet")
     M = json.loads((res_dir / "metrics.json").read_text())
+    final, final_tab = M["final_models"]["overall"], M["final_models"]["tabular"]
+    # primary run: core sample, adverse-break target, test period. A deal topped by a higher bid is NOT a break here.
+    R = R[R["core"] & (R["year"] >= 2019) & R[f"pred__primary__full__{final}"].notna()].reset_index(drop=True)
+    P = pd.DataFrame({"label": R["label_adverse"], "year": R["year"], "in_text_subset": R["has_text"]})
+    for c in R.columns:
+        if c.startswith("pred__primary__full__"):
+            P["full__" + c.split("__")[-1]] = R[c]
+        elif c.startswith("pred__primary__text__"):
+            P["text__" + c.split("__")[-1]] = R[c]
     y = P["label"].to_numpy()
     n, b = len(y), y.mean()
     years = P["year"].nunique()
     rng = np.random.default_rng(0)
 
-    names = {"full__one_rule": "1. One rule", "full__logit_tab": "2. Logistic, tabular",
-             "full__lgbm_tab": "3. LightGBM, tabular", "full__lgbm_full_text": "5f. LightGBM, tabular + text (full sample)"}
+    names = {"full__one_rule": "1. One rule", "full__logit_base": "2. Logistic, base tabular", "full__lgbm_base": "3. LightGBM, base tabular",
+             f"full__{final_tab}": f"Final tabular model ({final_tab})", f"full__{final}": f"Final model ({final})"}
     names = {k: v for k, v in names.items() if k in P.columns}
-    main_model = "full__lgbm_tab"
+    main_model = f"full__{final}"
     sc = P[main_model].to_numpy()
 
     out = {"assumptions": {"capital_per_year": CAPITAL, "base_spread": BASE_S, "base_loss": BASE_L,
                            "test_deals": int(n), "test_breaks": int(y.sum()), "test_years": int(years)},
            "hold_all": {}, "delta_vs_hold_all": {}, "base_case": {}}
     L_ = ["# Dollar impact: stylized simulation" + (" (SYNTHETIC SAMPLE: not real results)" if synthetic else ""), "",
-          "**This is not a backtest.** The project has no price data. The numbers below translate the model's "
-          "ranking of test-period deals into dollars under the assumptions listed here. Every figure is "
-          "conditional on those assumptions.", "",
+          "**Secondary view.** The headline impact is the price-based backtest in `results/backtest.md`, which covers the deals with usable prices. "
+          "This grid covers every test-period deal instead, at the cost of assumed payoffs: it translates the model's ranking into dollars under the "
+          "assumptions listed here, and every figure is conditional on them.", "",
           "## Assumptions", "",
-          f"- **Assumption 1 (portfolio).** The fund holds every deal announced in the test period (2019-2025: {n:,} deals, "
-          f"{int(y.sum())} breaks, break rate {b:.1%}), equal-weighted.",
+          f"- **Assumption 1 (portfolio).** The fund holds every deal announced in the test period (2019-2025, core sample without reverse mergers: {n:,} deals, "
+          f"{int(y.sum())} adverse breaks, rate {b:.1%}), equal-weighted. A deal topped by a higher bid is treated like a completed deal (it earns *s*); in reality it usually earns more.",
           "- **Assumption 2 (payoffs).** A deal that closes earns a gross spread *s*; a deal that breaks loses *L*. "
           "Both are identical across deals. Real spreads are wider for deals the market already sees as risky, so a "
           "constant *s* overstates the benefit of skipping flagged deals. See the break-even spread below.",
@@ -120,11 +129,11 @@ def main() -> None:
     be = b * BASE_L / (1 - b)
     L_ += [f"At the test-period break rate of {b:.1%} and *L* = {BASE_L:.0%}, holding everything breaks even at a spread of {be:.2%}.", ""]
 
-    L_ += [f"## Change versus holding every deal, using model 3 (LightGBM, tabular)", ""]
+    L_ += [f"## Change versus holding every deal, using the final model ({final})", ""]
     for how, frac in STRATS:
         f = flag_top(sc, frac)
         cap = y[f].sum() / max(y.sum(), 1)
-        title = f"{how.capitalize()} the riskiest {frac:.0%} ({int(f.sum())} deals, {int(y[f].sum())} of {int(y.sum())} breaks = {cap:.0%})"
+        title = f"{how.capitalize()} the riskiest {frac:.0%} ({int(f.sum())} deals, {int(y[f].sum())} of {int(y.sum())} adverse breaks = {cap:.0%})"
         fn = lambda s, L, how=how, frac=frac: delta(y, sc, how, frac, s, L)
         L_ += grid_md(fn, title + ": change in P&L")
         out["delta_vs_hold_all"][f"{how}_top{int(frac * 100)}"] = {f"s={s:.2f},L={L:.2f}": fn(s, L) for s in SPREADS for L in LOSSES}
@@ -149,16 +158,16 @@ def main() -> None:
            "deals with the same expected payoff.", ""]
 
     # ---- text subset: does text change the dollars?
-    if "text__lgbm_tab_emb" in P.columns and P["in_text_subset"].sum() > 20:
-        T = P[P["in_text_subset"]]
+    if "text__lgbm_alltext" in P.columns and P["text__lgbm_alltext"].notna().sum() > 20:
+        T = P[P["text__lgbm_alltext"].notna()]
         yt = T["label"].to_numpy(); nt = len(yt)
         ix_t = rng.integers(0, nt, (N_BOOT, nt))
-        L_ += ["## Text subset: tabular versus tabular + text", "",
+        L_ += ["## Text subset: extended tabular versus tabular + text", "",
                f"Deals with an announcement text only ({nt:,} test deals, {int(yt.sum())} breaks). Base case, change versus "
                "holding every deal in this subset. The last row is the paired difference between the two models.", "",
                "| Model | " + " | ".join(f"{h.capitalize()} riskiest {f:.0%}" for h, f in STRATS) + " |", "|---|" + "---|" * len(STRATS)]
-        cols = {"text__lgbm_tab": "3. LightGBM, tabular", "text__lgbm_tab_tfidf": "4. + keywords + TF-IDF",
-                "text__lgbm_tab_emb": "5. + keywords + embeddings"}
+        cols = {"text__lgbm_extm": "3m. Extended tabular + market context", "text__lgbm_tfidf": "4. + keywords + TF-IDF",
+                "text__lgbm_emb": "5. + keywords + embeddings", "text__lgbm_llm": "5L. + keywords + LLM terms", "text__lgbm_alltext": "5A. + all text groups"}
         draws = {}
         for col, label in cols.items():
             if col not in T.columns:
@@ -174,16 +183,16 @@ def main() -> None:
             L_.append(f"| {label} | " + " | ".join(cells) + " |")
         cells = []
         for how, frac in STRATS:
-            p5, b5 = draws[("text__lgbm_tab_emb", how, frac)]; p3, b3 = draws[("text__lgbm_tab", how, frac)]
+            p5, b5 = draws[("text__lgbm_alltext", how, frac)]; p3, b3 = draws[("text__lgbm_extm", how, frac)]
             lo, hi = np.percentile(b5 - b3, [2.5, 97.5])
-            out["base_case"].setdefault("text__emb_minus_tab", {})[f"{how}_top{int(frac * 100)}"] = {"delta": p5 - p3, "ci95": [float(lo), float(hi)]}
+            out["base_case"].setdefault("text__alltext_minus_extm", {})[f"{how}_top{int(frac * 100)}"] = {"delta": p5 - p3, "ci95": [float(lo), float(hi)]}
             cells.append(f"{(p5 - p3) / 1e6:+.2f} [{lo / 1e6:+.2f}, {hi / 1e6:+.2f}]")
-        L_ += ["| 5 minus 3 (paired) | " + " | ".join(cells) + " |", ""]
+        L_ += ["| 5A minus 3m (paired) | " + " | ".join(cells) + " |", ""]
 
     # ---- checks
     L_ += ["## Checks on the assumptions", ""]
     f10, f20 = flag_top(sc, 0.10), flag_top(sc, 0.20)
-    rows = ["| Flagged group (model 3) | Deals | Break rate | Break-even spread on flagged deals |", "|---|---:|---:|---:|"]
+    rows = ["| Flagged group (final model) | Deals | Break rate | Break-even spread on flagged deals |", "|---|---:|---:|---:|"]
     out["break_even_spread"] = {}
     for lab, f in (("riskiest 10%", f10), ("riskiest 20%", f20)):
         bf, br = y[f].mean(), y[~f].mean()
@@ -196,10 +205,10 @@ def main() -> None:
                   "deals at a wider spread than that, the fund is being paid for the risk and skipping destroys value. "
                   "This is the main reason the numbers above are an upper-end view.", ""]
 
-    rows = ["| Variant (model 3, base case) | " + " | ".join(f"{h.capitalize()} riskiest {f:.0%}" for h, f in STRATS) + " |", "|---|" + "---:|" * len(STRATS)]
+    rows = ["| Variant (final model, base case) | " + " | ".join(f"{h.capitalize()} riskiest {f:.0%}" for h, f in STRATS) + " |", "|---|" + "---:|" * len(STRATS)]
     rows.append("| Redeploy skipped capital (main) | " + " | ".join(f"{delta(y, sc, h, f, BASE_S, BASE_L) / 1e6:+.2f}" for h, f in STRATS) + " |")
     rows.append("| Skipped capital idle at 0% | " + " | ".join(f"{delta(y, sc, h, f, BASE_S, BASE_L, redeploy=False) / 1e6:+.2f}" for h, f in STRATS) + " |")
-    q = (M.get("full_sample", {}).get("selection", {}).get("lgbm_tab", {}) or {}).get("oof_quantiles")
+    q = (M["runs"]["primary"]["full"]["selection"].get(final, {}) or {}).get("oof_quantiles")
     if q:
         cells = []
         for how, frac in STRATS:
@@ -231,7 +240,7 @@ def main() -> None:
             for j in range(len(LOSSES)):
                 ax.text(j, i, f"{Z[i, j]:+.2f}", ha="center", va="center", fontsize=9)
         ax.set_title(title, loc="left", fontsize=10)
-    fig.suptitle(r"Stylized simulation, test 2019-2025, model 3 (LightGBM tabular): \$ million per \$100 million per year"
+    fig.suptitle(r"Stylized simulation, test 2019-2025, final model: \$ million per \$100 million per year"
                  + (" (synthetic sample)" if synthetic else ""), x=0.01, ha="left", fontsize=10)
     fig.tight_layout()
     fig.savefig(fig_dir / "impact_sensitivity.png"); plt.close(fig)
