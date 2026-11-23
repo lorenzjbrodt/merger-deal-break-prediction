@@ -400,3 +400,16 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     that the numbers are meaningless. The committed screenshots are taken from this fallback.
 117. **README** cut to about 500 words as requested; everything removed from it is reachable through
     `results/README.md`.
+
+## Export for the slide deck (code frozen)
+
+118. **Read-only export.** `src/deck_numbers.py` writes `results/deck_numbers.json` from the cached per-deal files. It
+    fits nothing and changes no result file; every number is checked against the published result files and the
+    script stops on a mismatch. New in it: 95% intervals for the annual return of each third (same resampling as the
+    report: announcement years for the pooled set, deals for the test period, 2,000 draws, seed 0, thirds fixed), the
+    monthly values of the three calendar-time portfolios, and the product model's error by segment. The script is not
+    part of `run_all.sh`.
+119. **Counts made explicit.** 246 adverse breaks and 100 topped deals are counts among all 4,744 signed deals. The core
+    sample of 4,468 deals (reverse mergers excluded) has 198 adverse breaks (158 training, 40 test) and 96 topped
+    deals (79 and 17). The README and the project page named 246 next to the core sample; both now state 198. No
+    result changed: every model and table already used the core sample.

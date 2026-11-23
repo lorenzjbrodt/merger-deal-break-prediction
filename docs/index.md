@@ -22,7 +22,7 @@ makes money out of sample.
 
 - **Deals.** 4,744 signed US public M&A deals announced 2001-2025 from a Capital IQ screen (licensed; not redistributed).
 - **Cleaning the question.** Of 346 breaks, 100 were lost to a higher competing bid, which is good news for an
-  arbitrageur. The target is the **adverse break** (246 cases). 276 reverse mergers (mostly de-SPACs) are excluded. The
+  arbitrageur. The target is the **adverse break** (246 cases). 276 reverse mergers (mostly de-SPACs) are excluded, which leaves 4,468 deals with 198 adverse breaks. The
   vendor stores the final offer, so the announcement-day offer is read from the press release.
 - **Inputs.** Deal terms, buyer and target financials, market conditions; the press release and merger agreement from SEC
   EDGAR, read by an LLM into 29 validated contract terms and the parties' stated expected closing; daily share prices

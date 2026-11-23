@@ -17,6 +17,7 @@ All tables are aggregates from the real data. "Test" = deals announced 2019-2025
 | [day1_signals.md](day1_signals.md) | Ten day-1 market signals beyond the spread (pre-specified, evaluated once) |
 | [overlap.md](overlap.md) | Antitrust overlap features (Hoberg-Phillips similarity, industry shares) |
 | [backtest.md](backtest.md) | Skip rules and the model-versus-market rule, daily marks |
+| [deck_numbers.json](deck_numbers.json) | Aggregates for the slide deck: monthly portfolio values, returns per third with intervals, sample counts, time-to-closing error by segment |
 
 ## Data, labels and checks
 

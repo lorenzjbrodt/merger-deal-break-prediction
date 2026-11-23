@@ -73,6 +73,7 @@ use it to annualize spreads and rank deals, read break risk off the spread, do n
 - Loss if it breaks: realised returns, raw and net of market, all forecasts: `results/loss_given_break.md`.
 - Expected return: all rankings, attribution, calendar-time portfolios, test period, and the old-versus-new table for the
   product time-to-closing model: `results/expected_return.md`. Index of all result files: `results/README.md`.
+- Numbers for charts (monthly portfolio values, returns per third with intervals, counts, segments): `results/deck_numbers.json`.
 - Backtest of skip rules and the model-versus-market rule: `results/backtest.md`, `figures/backtest.png`.
 - Linking to CRSP and price checks, which offer is known on day 1: `results/crsp_link.md`, `results/crsp_prices.md`.
 - Monthly-price fallback (runs without WRDS): `results/monthly/`.

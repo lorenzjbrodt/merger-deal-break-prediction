@@ -17,7 +17,7 @@ the time to closing, and the loss if it breaks.
 
 ## Data (licensed data is not in the repo: [DATA.md](DATA.md))
 
-- **Capital IQ**: 4,744 signed US public deals, 2001-2025; 4,468 without reverse mergers; 246 adverse breaks.
+- **Capital IQ**: 4,744 signed US public deals, 2001-2025; 4,468 without reverse mergers, of which 198 adverse breaks.
 - **SEC EDGAR**: announcement filings, read by an LLM into validated contract terms and the stated expected closing.
 - **CRSP daily prices** (WRDS) for 93% of targets; Compustat; Hoberg-Phillips product similarity; FRED.
 
