@@ -425,4 +425,4 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     deal: break risk, time to closing and loss if it breaks". The underwriting row (time to closing, loss if it
     breaks, expected annualized return) now comes first, directly under the deal heading and above the break-risk row;
     the deal name and the synthetic-sample notice stay above it so the numbers are never shown without them. The
-    three screenshots in `figures/` were regenerated with `app/screenshots.py --force-synthetic`. No number changed.
+    three screenshots in `figures/` were retaken using `app/screenshots.py --force-synthetic`. No number changed.
