@@ -58,6 +58,7 @@ if [ "$WRDS" = 1 ]; then
   $PY src/daily_eval.py > logs/daily_eval.log         # model versus market, backtest with daily marks, day-1 ladder step
   $PY src/loss_model.py > logs/loss_model.log         # loss if the deal breaks
   [ -f data/interim/overlap_features.parquet ] && $PY src/overlap.py eval > logs/overlap.log
+  $PY src/day1_signals.py build && $PY src/day1_signals.py run > logs/day1_signals.log   # pre-specified; decides the break probability used next
   $PY src/expected_return.py > logs/expected_return.log
 fi
 $PY src/label_audit.py > logs/label_audit.log

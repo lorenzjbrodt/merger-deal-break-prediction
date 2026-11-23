@@ -152,8 +152,9 @@ def build(synthetic: bool) -> Path:
             "deal_id": r["deal_id"], "target": r["target_clean"], "buyer": str(r["buyers"]) if pd.notna(r["buyers"]) else "", "announced": str(pd.Timestamp(r["announced_date"]).date()),
             "deal_value": float(r["deal_value"]), "premium_1d": None if pd.isna(r["premium_1d"]) else float(r["premium_1d"]),
             "consideration": str(r["consideration"]), "score": float(score[j]), "score_compact": float(p_c[j]),
-            "percentile": float((hist < score[j]).mean()), "p_mkt": None if pf is None or pd.isna(pf["p_mkt"]) or not bool(pf["backtest_ok"]) else float(pf["p_mkt"]),
-            "spread": None if pf is None or pd.isna(pf["spread"]) or not bool(pf["backtest_ok"]) else float(pf["spread"]),
+            "percentile": float((hist < score[j]).mean()),
+            "p_mkt": None if pf is None or pd.isna(pf["p_mkt"]) or not bool(pf["backtest_ok"]) or not bool(pf["cash_deal"]) else float(pf["p_mkt"]),      # all-cash deals only:
+            "spread": None if pf is None or pd.isna(pf["spread"]) or not bool(pf["backtest_ok"]) or not bool(pf["cash_deal"]) else float(pf["spread"]),   # stock-deal spreads are rough
             "outcome": str(D.outcome3[i]), "drivers": [(nm[t], None if not np.isfinite(v[t]) else float(v[t]), float(c[t])) for t in top],
             "terms": terms, "press": (D.press[i][:1800] if D.press is not None and D.has_text[i] else ""),
             "compact_row": A_te[j].astype(float).tolist(), "underwriting": uw.get(r["deal_id"]),

@@ -325,3 +325,56 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
 96. **Bootstrap for the market comparison** covers the pooled and the within-year ROC AUC only (rank-based, fast). The
     within-year interval is shown because scores refitted every year (market logistic, stack) are not on one scale across
     years, which lowers their pooled AUC; `p_mkt` and the raw spread do not have that problem.
+
+## Underwriting extension (time to closing, loss if it breaks, expected return)
+
+97. **Time-to-closing target and sample.** Log calendar days from announcement to closing, completed core-sample deals;
+    broken deals are dropped in the main specification because the arbitrageur needs time to closing given that the
+    deal closes. A log-normal survival model with broken deals censored at cancellation is the robustness row.
+98. **Duration grid.** The first grid (3 to 12 leaves, up to 400 trees) put the CV optimum on its edge, so it was
+    widened to 6 to 24 leaves and 200 to 800 trees before any test result was produced. Selection criterion: CV mean
+    absolute error on log days.
+99. **Final duration model** = the feature set with the lowest CV error inside the training years, among base,
+    extended, extended plus market context, and those plus LLM terms (with a has-text flag, so it applies to every
+    deal). CV chose the LLM-terms variant in the time split and in all 13 origins.
+100. **Management guidance.** The LLM-extracted field `expected_closing_months` had failed validation in the extended
+    run, so the stated expected closing was read again with a dedicated step: sentences found by pattern, converted to
+    a date window by Claude Sonnet, checked against the strongest model on 60 deals (97% within 7 days). Guidance in
+    days = midpoint of the stated window, or the stated bound when only one is given. It is a benchmark; one separately
+    labelled ladder step also uses it as an input.
+101. **Loss if it breaks.** Return from the day-1 close to the close one (and five) trading days after the
+    cancellation date, all considerations, unhedged. Forecasts are restricted to a constant, the fall-back benchmark,
+    a one-variable fit, ridge and a 3-leaf boosted model. For the expected-return step, a forecast for year Y uses
+    only breaks announced and cancelled before Y, and the forecast type is chosen by leave-one-year-out inside them.
+102. **Day-1 signals (step P).** The two specifications, their inputs and all hyper-parameters were written into
+    `src/day1_signals.py` before the out-of-time evaluation was run, and the evaluation was run once. Before that run,
+    the signal distributions (not outcomes) were inspected and five signals were clipped to fixed limits because of
+    obvious data errors (an acquirer return of +1,146%). Nothing was changed after seeing the results. Specifications
+    tried: two.
+103. **Which break probability the expected-return step uses.** As instructed: the day-1 model for a test year only
+    where the cross-validation inside that origin's training years prefers it over `p_mkt`, otherwise the
+    market-implied probability (through the market logistic, because raw `p_mkt` is not calibrated). The CV preferred
+    the day-1 model in 7 of 13 origins and for the test period, although out of time it did not beat `p_mkt`; the rule
+    was followed as written.
+104. **P(topped)** comes from a three-variable logistic regression (day-1 spread, `p_mkt`, deal size) fitted on earlier
+    years; the bump if topped is the mean extra return of earlier topped deals over their day-1 spread. Too few topped
+    deals exist to model more.
+105. **Expected time to resolution** uses the mean of the predicted log-normal for closing (exp(mu + sigma^2 / 2), sigma
+    from out-of-fold residuals) and the mean time to a break and to a topping bid in earlier years.
+106. **Terciles** are formed within each announcement year, for the test period and the pooled set alike.
+107. **"Spread annualized with the median duration"** uses the training-period median by structure (tender offer or
+    merger). With one global median it would rank deals exactly like the raw spread.
+108. **Calendar-time portfolio: 10% position cap.** The first version gave each open deal a weight of 1 / (open deals).
+    In the last weeks of the sample only one broken deal was still open, at 100% weight, which produced a 50% drawdown
+    that has nothing to do with the strategy. Each deal now gets 1 / max(open deals, 10) and the rest is cash. The cap
+    was added after seeing that drawdown and before comparing the portfolios.
+109. **Spread-only references.** After the model ranking and its top half were seen to beat hold-all, the same
+    constructions were run with the raw spread (top third, top half), and the model is judged by the difference to
+    those, because the spread is free.
+110. **Antitrust overlap.** Hoberg-Phillips TNIC-3 was downloaded from the authors' site (data to 2023; latest year
+    before the announcement, at most three years back). Acquirer gvkey comes from the CRSP link through CCM. Missing
+    pair features (private, sponsor and foreign buyers) are left missing for the tree models.
+111. **Smoke test side effect fixed.** The synthetic smoke test overwrote `artifacts/final_tabular_shap.pkl`; the file
+    now carries the run tag, and the real one was regenerated (refit predictions identical to the stored ones).
+112. **Demo.** The underwriting row is shown for test-period deals from the real artefacts only. Market-implied
+    probability, spread and expected annualized return are shown for all-cash deals only.

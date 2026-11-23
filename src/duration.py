@@ -155,7 +155,7 @@ def ladder(D, y, closed, tr_all, te, subset, log, cens=None):
     return P, I
 
 
-def fit(suffix: str) -> None:
+def fit(suffix: str, reverse: bool = False) -> None:
     t0 = time.time()
 
     def log(msg):
@@ -178,7 +178,7 @@ def fit(suffix: str) -> None:
     def put(name, te, p):
         cols.setdefault(name, np.full(n, np.nan))[te] = p
     sel = {}
-    for tag, origins in (("split", [None]), ("oot", YEARS)):
+    for tag, origins in (("split", [None]), ("oot", YEARS[::-1] if reverse else YEARS)):   # --reverse: a second worker from the other end
         for Y in origins:
             for subset in ("full", "text"):
                 sm = D.core & (D.has_text if subset == "text" else True)
@@ -349,7 +349,7 @@ def report(suffix: str) -> None:
                 L.append(f"| {g}: {v} | {int(m.sum())} | {np.median(X['days'].to_numpy()[m]):.0f} | {a[0]:.1f} | {b[0]:.1f} | {b[3]:.0%} |")
         out["segments"] = segs
         L.append("")
-    ch = [v["final"]["chosen"] for k, v in sel.items() if k[2] == "full" and "final" in v]
+    ch = [v["final"]["chosen"] for k, v in sel.items() if k[0] == "oot" and k[2] == "full" and "final" in v]
     out["final_chosen"] = {str(k[1] or "split"): v["final"]["chosen"] for k, v in sel.items() if k[2] == "full" and "final" in v}
     L += ["## Notes", "",
           f"- Final model: the feature set with the lowest CV error inside the training years. Time split: {LABELS[sel[('split', None, 'full')]['final']['chosen']].split('.')[0]}; "
@@ -373,10 +373,14 @@ def report(suffix: str) -> None:
         ax[0].scatter(p, d, s=8, alpha=0.35, color="#08519c", lw=0)
         ax[0].plot([10, 1000], [10, 1000], color="#9e9e9e", ls="--", lw=1)
         ax[0].set(xscale="log", yscale="log", xlabel="Predicted days to closing (final model)", ylabel="Actual days to closing", xlim=(15, 800), ylim=(15, 1200))
+        from matplotlib.ticker import NullFormatter, ScalarFormatter
+        for axis in (ax[0].xaxis, ax[0].yaxis):
+            axis.set_major_formatter(ScalarFormatter()); axis.set_minor_formatter(NullFormatter())
+        ax[0].set_xticks([20, 50, 100, 200, 500]); ax[0].set_yticks([20, 50, 100, 200, 500, 1000])
         ax[0].set_title("Test period 2019-2025, completed deals", loc="left", fontsize=10)
         ev = out.get("split_full")
         if ev:
-            ks = [m for m in ORDER if m in ev["scores"] and m != "aft_base"]
+            ks = [m for m in ORDER if m in ev["scores"] and m not in ("aft_base", "final")]
             ypos = np.arange(len(ks))[::-1]
             v = [ev["scores"][k]["mae"] for k in ks]
             ax[1].errorbar(v, ypos, xerr=[[ev["scores"][k]["mae"] - ev["scores"][k]["ci95"]["mae"][0] for k in ks], [ev["scores"][k]["ci95"]["mae"][1] - ev["scores"][k]["mae"] for k in ks]],
@@ -390,6 +394,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["fit", "report"])
     ap.add_argument("--tag", default="real")
+    ap.add_argument("--reverse", action="store_true", help="fit the rolling origins from the last year backwards (second worker; shares the checkpoints)")
     a = ap.parse_args()
     sfx = "" if a.tag == "real" else f"_{a.tag}"
-    {"fit": fit, "report": report}[a.cmd](sfx)
+    fit(sfx, a.reverse) if a.cmd == "fit" else report(sfx)

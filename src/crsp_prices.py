@@ -313,10 +313,20 @@ def main() -> None:
     PF.to_parquet(INTERIM / "price_features_crsp.parquet", index=False)
 
     rows = []
-    for deal_id, s, a, e, _ in daily:
+    exit_of = dict(zip(PF["deal_id"], PF["exit_date"]))
+    for deal_id, s, a, e, total in daily:
         i, j = np.searchsorted(s.dates, a, side="right"), np.searchsorted(s.dates, e, side="right")
-        if j > i:
-            rows.append(pd.DataFrame({"deal_id": deal_id, "date": s.dates[i:j].astype("datetime64[ns]"), "ret": np.nan_to_num(s.ret[i:j]), "source": s.src[i:j]}))
+        dts, r, src = s.dates[i:j].astype("datetime64[ns]"), np.nan_to_num(s.ret[i:j]), s.src[i:j]
+        if np.isfinite(total):                                # completed deal: make the daily series add up to the deal return
+            resid = (1 + total) / np.prod(1 + r) - 1          # (the final payment when there is no delisting record)
+            if abs(resid) > 1e-6:
+                x = np.datetime64(exit_of[deal_id], "ns")
+                if len(dts) and x <= dts[-1]:
+                    r[-1] = (1 + r[-1]) * (1 + resid) - 1
+                else:
+                    dts, r, src = np.append(dts, x), np.append(r, resid), np.append(src, "payment at closing")
+        if len(dts):
+            rows.append(pd.DataFrame({"deal_id": deal_id, "date": dts, "ret": r, "source": src}))
     pd.concat(rows, ignore_index=True).to_parquet(INTERIM / "deal_daily_returns.parquet", index=False)
 
     report(d, link, PF, T, crsp_end, ciq)

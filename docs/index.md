@@ -1,4 +1,4 @@
-# Predicting M&A deal breaks at announcement
+# Underwriting merger deals at announcement
 
 MIT 15.071, Project 1 (Predictive AI). Solo project by Lorenz J. Brodt.
 Code and full results: <https://github.com/lorenzjbrodt/merger-deal-break-prediction>
@@ -6,85 +6,88 @@ Code and full results: <https://github.com/lorenzjbrodt/merger-deal-break-predic
 ## Problem
 
 A merger-arbitrage fund buys the target's shares after a deal is announced. If the deal closes, it earns a spread of a few
-percent. If the deal breaks, it loses many times that. The portfolio manager has to decide on day one whether to take the
-position and how large. This project asks how well the break can be predicted from what is known on the announcement day.
+percent. If the deal breaks, it loses many times that. For every deal the portfolio manager underwrites three numbers:
+the probability of an adverse break, the time to closing, and the loss if it breaks. This project asks how well each can
+be predicted from what is known at announcement, and whether ranking deals by the expected annualized return they imply
+makes money out of sample.
 
 ## Approach
 
 - **Deals.** 4,744 signed US public M&A deals announced 2001-2025 from a Capital IQ screen (licensed; not redistributed).
-- **Target.** Not every cancelled deal hurts an arbitrageur. Of 346 breaks, 100 were lost to a higher competing bid. The
-  primary target is the **adverse break** (246 cases): cancelled for any other reason. Reasons were read from deal notes
-  by an LLM, cross-checked with rules, and 50 cases were re-read by hand.
-- **Sample.** 276 deals are reverse mergers, mostly de-SPACs from 2020 onward. They are not arbitrage situations and are
-  excluded from the primary sample (4,468 deals).
-- **Inputs.** Deal terms, buyer and target financials, market conditions, the press release and merger agreement from SEC
-  EDGAR (TF-IDF, sentence embeddings, a fine-tuned encoder, and 29 contract terms extracted by an LLM and validated
-  against a stronger model), and the target's daily share price from CRSP (via WRDS).
-- **Evaluation.** Train on 2001-2018, test on 2019-2025. Everything fitted inside the training period. A second,
-  larger evaluation set pools 2013-2025, with every year scored by models refitted on earlier years only. Bootstrap
-  confidence intervals. Ablations, calibration, SHAP, a label audit against SEC filings, and a backtest on daily prices.
+- **Cleaning the question.** Of 346 breaks, 100 were lost to a higher competing bid, which is good news for an
+  arbitrageur. The target is the **adverse break** (246 cases). 276 reverse mergers (mostly de-SPACs) are excluded. The
+  vendor stores the final offer, so the announcement-day offer is read from the press release.
+- **Inputs.** Deal terms, buyer and target financials, market conditions; the press release and merger agreement from SEC
+  EDGAR, read by an LLM into 29 validated contract terms and the parties' stated expected closing; daily share prices
+  from CRSP; product similarity of buyer and target (Hoberg-Phillips).
+- **Evaluation.** Train on 2001-2018, test on 2019-2025. A second, larger set pools 2013-2025, with every year scored by
+  models refitted on earlier years only. Bootstrap confidence intervals throughout. Positions are entered at the close
+  one trading day after the announcement; returns are before costs.
 
 ![Deals and break rates by year](figures/break_rate_by_year.png)
 
 ## Results
 
-Test period 2019-2025, primary sample: 1,083 deals, 40 adverse breaks.
+### 1. Break probability: weak, and the market does it better
 
-| Model | ROC AUC [95% CI] | Adverse breaks found in the riskiest 20% of deals |
+| Adverse breaks, ROC AUC [95% CI] | Test 2019-2025 | Pooled out-of-time 2013-2025 |
 |---|---|---|
-| Base rate | 0.500 | 20% |
-| One rule (any stock in the consideration) | 0.528 [0.449, 0.606] | 23% |
-| Logistic regression, base deal terms | 0.606 [0.523, 0.694] | 28% |
-| LightGBM, base deal terms | 0.628 [0.538, 0.713] | 40% |
-| LightGBM + extended buyer, target and structure features (final model) | 0.633 [0.551, 0.717] | 35% |
-| + market context | 0.626 [0.545, 0.709] | 33% |
-| + text (keywords, embeddings, LLM-extracted terms) | 0.646 [0.559, 0.730] | 33% |
-| Market-implied probability on day 1 (623 priced cash deals, 22 breaks) | 0.643 [0.523, 0.755] | 27% |
+| Logistic regression, base deal terms | 0.606 [0.523, 0.694] | 0.590 [0.525, 0.651] |
+| Final model (LightGBM, extended features) | 0.633 [0.551, 0.717] | 0.609 [0.538, 0.686] |
+| + text (keywords, embeddings, LLM terms) | 0.646 [0.559, 0.730] | 0.599 [0.540, 0.663] |
+| Market-implied probability, day 1 (priced all-cash deals) | 0.643 [0.523, 0.755] | 0.721 [0.642, 0.800] |
+| Final model on the same deals | 0.632 [0.519, 0.734] | 0.599 [0.476, 0.702] |
 
-![ROC and precision-recall curves](figures/roc_pr_ladder.png)
-
-**1. The signal is real and weak.** Deal terms rank adverse breaks better than chance. In the pooled out-of-time set
-(2013-2025: 2,176 deals, 84 adverse breaks) the final model reaches an AUC of 0.609 [0.538, 0.686]. The model keys on
-financial weakness and structure: weak target and acquirer share prices, all-stock consideration, deal size relative to
-the buyer.
-
-**2. More data did not help.** Extended features, market context, text and LLM-extracted contract terms each change the
-AUC by an amount whose interval includes zero, in the test period and in the pooled set with twice as many breaks. A
-fine-tuned text encoder performs at chance. Announcements are written by the deal parties and read alike whether or not
-the deal later breaks.
-
-![Ablation by feature group](figures/ablation_groups.png)
-
-**3. The market ranks breaks better than the model.** One trading day after the announcement, the market-implied break
-probability from the spread reaches an AUC of 0.72 [0.64, 0.80] in the pooled set (1,205 priced all-cash deals, 38
-adverse breaks) against 0.60 [0.48, 0.70] for the model. Adding the model to the market changes the AUC by
--0.03 [-0.19, +0.11].
+Test: 1,083 deals, 40 adverse breaks (623 priced all-cash, 22 breaks). Pooled: 2,176 deals, 84 adverse breaks (1,205
+priced, 38 breaks). Extended features, text, LLM-extracted terms, product overlap and ten further day-1 market signals
+each change the AUC by an amount whose interval includes zero or is negative. The model keys on financial weakness and
+deal structure and is blind to what blocks clean cash deals.
 
 ![Model versus market](figures/model_vs_market.png)
 
-**4. In dollars.** Backtest on CRSP daily prices, all-cash deals, entry at the day-1 close, before costs. Holding every
-deal returned 6.8% a year in the test period and 6.4% in the pooled set. Skipping the model's riskiest 10% changes that
-by +0.3 points [-0.6, +1.4] (pooled +0.7 [-0.1, +1.4]). A rule that skips deals where the model sees more risk than the
-market adds +4.3 points [+1.6, +7.2] (pooled +2.4 [+0.3, +4.6]), but it mostly holds wide spreads, which earned more
-anyway. Against a model-free rule holding the same number of deals the gain is +1.8 [-0.3, +4.4] (pooled +0.8 [-1.0, +2.9]).
+### 2. Time to closing: predictable
 
-![Backtest: change in annual return versus holding all deals](figures/backtest.png)
+The median completed deal takes 107 days. The final model's mean absolute error is 52.7 days [48.1, 57.4] in the test
+period against 63.5 for the median by structure (tender offer or merger), with an R2 of 0.54 on log days. LLM-extracted
+contract terms cut the error by 1.6 days [-2.6, -0.6]; text embeddings add nothing. The model is as accurate as the
+closing date the parties state themselves (46.9 against 46.4 days), and a model that also reads that guidance beats it by
+6.6 days [-9.5, -3.9].
 
-**5. Definitions and data matter more than models.** A first pass that counted every cancelled deal as a break reached
-an AUC of 0.62 to 0.70, much of it from telling de-SPACs and topped deals apart from ordinary mergers. And the vendor
-stores the final offer: for deals that were later bumped, the day-1 spread looked like 30% or more until the
-announcement-day offer was read from the press release.
+![Time to closing](figures/duration.png)
+
+### 3. Loss if it breaks: large and barely predictable
+
+From the day-1 close to the day after the cancellation, adverse breaks lost 28% on average (184 deals), with a tenth of
+them losing more than 73%. A fall back to the pre-announcement price would imply only 11%. No forecast beats the
+historical average when every year is predicted from the others.
+
+![Loss if the deal breaks](figures/loss_given_break.png)
+
+### 4. In dollars: ranking by expected annualized return
+
+Combining the three numbers per deal and sorting each year's all-cash deals into thirds (pooled 2013-2025, 1,205
+deals): the top third earned 11.7% a year, the middle 3.4%, the bottom 2.3%; top minus bottom +9.3 points
+[+5.5, +13.5]. The raw spread alone gives +8.4 [+5.0, +12.7]. The model's top third beats the spread's top third by 1.9
+points [+0.4, +3.3]. In a daily calendar-time portfolio the top half by the model returned 9.3% a year with a Sharpe
+ratio of 0.80, the top half by raw spread 8.7% and 0.77, all deals 7.2% and 0.72; model minus spread +0.6 points
+[-0.9, +2.0].
+
+![Ranking test and calendar-time portfolio](figures/expected_return.png)
+
+### 5. What to take from it
+
+Annualize spreads with the duration model, read break risk off the spread, and do not size positions on the break
+model. Most of the ranking profit is a risk premium: the top third holds 25 of the 38 adverse breaks.
 
 ## Limitations
 
 - **Few events.** 40 adverse breaks in the test period (22 priced all-cash) and 84 in the pooled set (38 priced).
-  Intervals are wide, and "no measurable gain" does not mean "no gain".
+  Intervals are wide, and "no measurable gain" does not mean "no gain". Pooled intervals resample only 13 years.
+- **Before costs.** No transaction or financing costs, equal weights, unlimited capacity, every deal bought at the day-1
+  close.
 - **Licensed vendor data.** Results can be rebuilt only with Capital IQ and WRDS access. The vendor fills fewer fields
   for cancelled deals, stores final terms, and 15% of breaks have no stated reason. An audit of 80 deal statuses against
   SEC filings found 3 of 76 checkable ones contradicted.
-- **Backtest.** No transaction or financing costs, equal weights, unlimited capacity, every deal bought at the day-1
-  close.
-- **Blind spot.** The model cannot see competitive overlap, which drives antitrust blocks and the largest losses.
 - **LLM caveat.** An exploratory zero-shot LLM score ranked deals far better (AUC 0.82), but the same LLM could name 92%
   of the anonymised targets, so it may simply know how the deals ended. It is not used anywhere.
 

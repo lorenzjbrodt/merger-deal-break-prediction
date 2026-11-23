@@ -1,7 +1,9 @@
 """Expected annualized return per deal on day 1, and whether ranking deals by it makes money out of sample.
 
 Per all-cash deal at t1 (first trading day after the announcement), from out-of-time components only:
-  P(adverse break)   calibrated break model (variant: model + market stack)                      [daily_eval.py]
+  P(adverse break)   the day-1 model where the training-period CV preferred it over the market-implied
+                     probability, otherwise the market-implied probability through the market logistic  [day1_signals.py]
+                     (variants: calibrated announcement-date model; model + market stack)             [daily_eval.py]
   P(topped)          small logistic regression on the day-1 spread, p_mkt and deal size, fitted on earlier years
   P(close)           1 - P(adverse break) - P(topped)
   time to closing    time-to-closing model, mean of the predicted log-normal                      [duration.py]
@@ -38,7 +40,8 @@ WRDS = ROOT / "data/wrds"
 YEARS = list(range(2013, 2026))
 CAPITAL = 100e6
 N_BOOT = 2000
-RANKS = {"ear": "Expected annualized return (model)", "ear_stack": "Expected annualized return (break probability from model + market)",
+RANKS = {"ear": "Expected annualized return (break probability chosen by the day-1 step)", "ear_model": "Expected annualized return (break probability from the announcement-date model)",
+         "ear_stack": "Expected annualized return (break probability from model + market stack)",
          "spread": "Benchmark: raw day-1 spread", "spread_ann": "Benchmark: spread annualized with the median duration by structure",
          "mkt": "Benchmark: lowest market-implied break probability", "ear_no_break": "Attribution: break probability replaced by its average",
          "ear_no_duration": "Attribution: time to closing replaced by its average", "ear_no_loss": "Attribution: loss if it breaks replaced by its average"}
@@ -130,12 +133,29 @@ def tercile_table(E, rows, score, by_year, rng):
     return res
 
 
-def calendar_portfolio(daily, ids, rf):
-    """Equal-weighted daily return of all open positions among `ids` (0 on days without a position)."""
+def calendar_portfolio(daily, ids, rf, cap=10):
+    """Daily return of the open positions among `ids`, equal weights with a 10% position cap: each open deal gets
+    1 / max(number of open deals, 10) of the capital and the rest sits in cash at zero. Without the cap the first and
+    last weeks of the sample hold one or two deals at 100% weight."""
     x = daily[daily["deal_id"].isin(ids)]
-    r = x.groupby("date")["ret"].mean()
     n = x.groupby("date")["ret"].size()
+    r = x.groupby("date")["ret"].sum() / np.maximum(n, cap)
     return r, n
+
+
+def top_vs_top(E, rows, sa, sb, by_year, rng):
+    """Annual return of the top third under ranking a minus the top third under ranking b, with a bootstrap interval."""
+    X = E[rows]
+    ret, hold, yr = X["ret"].to_numpy(), X["hold"].to_numpy(), X["year"].to_numpy()
+    ta, tb = terciles(sa[rows], yr) == 2, terciles(sb[rows], yr) == 2
+    blocks = [np.where(yr == v)[0] for v in np.unique(yr)]
+    ds = []
+    for _ in range(N_BOOT):
+        ix = np.concatenate([blocks[i] for i in rng.integers(0, len(blocks), len(blocks))]) if by_year else rng.integers(0, len(X), len(X))
+        if ta[ix].sum() > 3 and tb[ix].sum() > 3:
+            ds.append(portfolio(ret[ix][ta[ix]], hold[ix][ta[ix]]) - portfolio(ret[ix][tb[ix]], hold[ix][tb[ix]]))
+    return {"point": portfolio(ret[ta], hold[ta]) - portfolio(ret[tb], hold[tb]), "ci95": [float(np.percentile(ds, 2.5)), float(np.percentile(ds, 97.5))],
+            "overlap": float((ta & tb).sum() / max(ta.sum(), 1)), "share_gt0": float((np.array(ds) > 0).mean())}
 
 
 def port_stats(r, rf):
@@ -171,6 +191,8 @@ def main() -> None:
     ZD = pickle.load(open(INTERIM / "duration.pkl", "rb"))
     DU, dsel = ZD["pred"].set_index("deal_id").reindex(D.deals["deal_id"]).reset_index(), ZD["selection"]
     LO = pd.read_parquet(INTERIM / "loss_oot.parquet").set_index("deal_id").reindex(D.deals["deal_id"]).reset_index()
+    D1 = pd.read_parquet(INTERIM / "day1_signals.parquet").set_index("deal_id").reindex(D.deals["deal_id"]).reset_index()
+    d1info = json.loads((res / "day1_signals.json").read_text())["used_in_M"]
     E = pd.DataFrame({"deal_id": D.deals["deal_id"].to_numpy(), "year": D.year, "cls": D.outcome3, "spread": PF["spread"].to_numpy(), "p_mkt": PF["p_mkt"].to_numpy(),
                       "ret": PF["ret"].to_numpy(), "hold": PF["hold_days"].to_numpy(), "days_to_t1": PF["days_to_t1"].to_numpy(),
                       "log_value": D.X["log_deal_value"].to_numpy(float), "tender": (D.X["feat_tender_offer"].fillna(0).to_numpy() == 1),
@@ -184,18 +206,19 @@ def main() -> None:
     comp_cols = {v: {k: np.full(n, np.nan) for k in ("p_adv", "p_top", "p_close", "loss", "t_close", "exp_ret", "exp_days", "ear", "ear_stack")} for v in ("pooled", "test")}
     for view, origins in (("pooled", YEARS), ("test", [None])):
         for Y in origins:
-            te = priced & ((D.year == Y) if Y else (D.year >= 2019)) & DE[f"{view}__rows"].fillna(False).to_numpy(bool)
+            te = priced & ((D.year == Y) if Y else (D.year >= 2019)) & DE[f"{view}__rows"].fillna(False).to_numpy(bool) & D1[f"cash__{view}__rows"].fillna(False).to_numpy(bool)
             cut = np.datetime64(f"{Y}-01-01") if Y else np.datetime64("2019-01-01")
             tr = priced & (D.year <= ((Y - 1) if Y else 2018)) & (canc < cut)              # outcomes known before the cut-off
             tag = "oot" if Y else "split"
             I = dsel.get((tag, Y, "full"))
             if te.sum() == 0 or I is None or tr.sum() < 200:
                 continue
-            c = components(E, tr, te, DE[f"{view}__cal"].to_numpy(), DU[f"{tag}__full__final"].to_numpy(), I["final"]["oof_resid_sd"], LO[f"{tag}__adverse"].to_numpy())
+            c = components(E, tr, te, D1[f"cash__{view}__selected"].to_numpy(), DU[f"{tag}__full__final"].to_numpy(), I["final"]["oof_resid_sd"], LO[f"{tag}__adverse"].to_numpy())
             sp = E["spread"].to_numpy()[te]
             er, et, e1 = ear(c, sp)
             R = S2[view]
             R["ear"][te] = e1
+            R["ear_model"][te] = ear(c, sp, p_adv=np.clip(DE[f"{view}__cal"].to_numpy()[te], 1e-4, 0.95))[2]
             R["ear_stack"][te] = ear(c, sp, p_adv=np.clip(DE[f"{view}__stack"].to_numpy()[te], 1e-4, 0.95))[2]
             R["spread"][te] = sp
             R["spread_ann"][te] = sp / (c["t_med_structure"] / 365.0)
@@ -212,6 +235,9 @@ def main() -> None:
          "All-cash core deals with CRSP prices. On day 1 each deal gets: a probability of an adverse break, of being topped and of closing; an expected time to closing; an expected "
          "loss if it breaks; and from these an expected return and an expected annualized return. Every component comes from models fitted on earlier years only "
          "(`results/pooled_oot.md`, `results/duration.md`, `results/loss_given_break.md`).", "",
+         f"**Break probability used:** as decided in `results/day1_signals.md` by cross-validation inside each origin's training years: the day-1 model in {d1info['pooled_origins_using_day1']} of "
+         f"{d1info['pooled_origins']} pooled origins and the market-implied probability (through the market logistic) in the others; "
+         f"{'the day-1 model' if d1info['test_uses_day1'] else 'the market-implied probability'} for the test period. Rankings with the announcement-date model and with the model-plus-market stack are shown next to it.", "",
          "The test: sort the deals of each announcement year into thirds by the ranking, buy at the day-1 close, hold to the outcome, and compare realised returns. "
          "Annual return = total P&L over total capital-years. Intervals: bootstrap over announcement years (pooled) and over deals (test period). "
          "**Limits:** no transaction or financing costs, equal weights, unlimited capacity, every deal bought at the day-1 close.", ""]
@@ -237,8 +263,12 @@ def main() -> None:
                      f"{r['top_minus_bottom'] * 100:+.1f} [{r['top_minus_bottom_ci95'][0] * 100:+.1f}, {r['top_minus_bottom_ci95'][1] * 100:+.1f}] | "
                      f"{r['top_minus_all'] * 100:+.1f} [{r['top_minus_all_ci95'][0] * 100:+.1f}, {r['top_minus_all_ci95'][1] * 100:+.1f}] | {t['top']['adverse']} / {t['middle']['adverse']} / {t['bottom']['adverse']} |")
         r = V["rankings"]["ear"]; t = r["terciles"]
+        V["model_top_minus_benchmark_top"] = {k: top_vs_top(E, rows, R["ear"], R[k], by_year, rng) for k in ("spread", "spread_ann")}
+        x1, x2 = V["model_top_minus_benchmark_top"]["spread"], V["model_top_minus_benchmark_top"]["spread_ann"]
         L += ["", "Differences are in points of annual return, equal to $ million per $100 million per year. "
               f"All ranked deals together returned {r['all']:+.1%} a year.", "",
+              f"**Does the model ranking beat the free one?** Top third by expected annualized return minus top third by raw spread: **{x1['point'] * 100:+.1f} points [95% CI {x1['ci95'][0] * 100:+.1f}, {x1['ci95'][1] * 100:+.1f}]** "
+              f"(the two top thirds share {x1['overlap']:.0%} of their deals); minus top third by annualized spread: {x2['point'] * 100:+.1f} [{x2['ci95'][0] * 100:+.1f}, {x2['ci95'][1] * 100:+.1f}] ({x2['overlap']:.0%} shared).", "",
               "Detail for the model ranking:", "", "| Third | Deals | Mean expected annualized return | Realised annual return | $ million per $100 million per year | Mean return per deal | Adverse break rate | Topped | Median holding days |",
               "|---|---:|---:|---:|---:|---:|---:|---:|---:|"]
         for lab in ("top", "middle", "bottom"):
@@ -247,38 +277,49 @@ def main() -> None:
         L.append("")
         # rank agreement for the attribution
         base = pd.Series(R["ear"][rows])
-        att = {k: float(base.corr(pd.Series(R[k][rows]), method="spearman")) for k in ("ear_no_break", "ear_no_duration", "ear_no_loss", "spread", "spread_ann", "mkt", "ear_stack")}
+        att = {k: float(base.corr(pd.Series(R[k][rows]), method="spearman")) for k in ("ear_no_break", "ear_no_duration", "ear_no_loss", "spread", "spread_ann", "mkt", "ear_stack", "ear_model")}
         V["rank_correlation_with_model"] = att
         L += ["Attribution: rank correlation of the model ranking with the ranking obtained when one component is replaced by its unconditional average "
               f"(1 = that component does not move the ranking): break probability {att['ear_no_break']:.2f}, time to closing {att['ear_no_duration']:.2f}, loss if it breaks {att['ear_no_loss']:.2f}. "
               f"Correlation with the raw spread ranking: {att['spread']:.2f}; with the annualized spread: {att['spread_ann']:.2f}.", ""]
         # calendar-time portfolio
-        ids_all = E["deal_id"].to_numpy()[rows]
-        e = R["ear"]
-        order = np.argsort(E["t1"].to_numpy())
-        top_half = np.zeros(n, bool)
         t1v = E["t1"].to_numpy()
-        for i in np.where(rows)[0]:
-            prior = rows & (t1v < t1v[i]) & (t1v >= t1v[i] - np.timedelta64(365, "D"))
-            top_half[i] = (e[i] >= np.nanmedian(e[prior])) if prior.sum() >= 20 else True
-        ra, na = calendar_portfolio(daily, set(ids_all), rf)
-        rb, nb = calendar_portfolio(daily, set(E["deal_id"].to_numpy()[rows & top_half]), rf)
+
+        def top_half(score):
+            th = np.zeros(n, bool)
+            for i in np.where(rows)[0]:
+                prior = rows & (t1v < t1v[i]) & (t1v >= t1v[i] - np.timedelta64(365, "D"))
+                th[i] = (score[i] >= np.nanmedian(score[prior])) if prior.sum() >= 20 else True
+            return th
+        sets = {"all": rows, "top_model": rows & top_half(R["ear"]), "top_spread": rows & top_half(R["spread"])}
+        ser = {k: calendar_portfolio(daily, set(E["deal_id"].to_numpy()[m]), rf) for k, m in sets.items()}
+        ra = ser["all"][0]
         idxd = pd.DatetimeIndex(sorted(set(rf.index[(rf.index >= ra.index.min()) & (rf.index <= ra.index.max())]) | set(ra.index)))
-        ra, rb = ra.reindex(idxd).fillna(0.0), rb.reindex(idxd).fillna(0.0)
         rfd = rf.reindex(idxd).ffill().fillna(0.0)
-        sa, sb = port_stats(ra, rfd), port_stats(rb, rfd)
-        ci_r, ci_s = block_ci(rb, ra, rfd, rng)
-        V["calendar"] = {"all": sa, "top_half": sb, "mean_open_all": float(na.reindex(idxd).fillna(0).mean()), "mean_open_top": float(nb.reindex(idxd).fillna(0).mean()),
-                         "deals_all": int(rows.sum()), "deals_top": int((rows & top_half).sum()), "diff_return": sb["annual_return"] - sa["annual_return"], "diff_return_ci95": ci_r,
-                         "diff_sharpe": sb["sharpe"] - sa["sharpe"], "diff_sharpe_ci95": ci_s, "start": str(idxd.min().date()), "end": str(idxd.max().date())}
-        fig_data[view] = (idxd, (1 + ra).cumprod(), (1 + rb).cumprod(), V)
-        L += [f"Calendar-time portfolio, {idxd.min().date()} to {idxd.max().date()}, daily CRSP total returns, equal weights across open deals, rebalanced daily, cash earns nothing on days without a position. "
-              "\"Top half\" holds a deal only if its expected annualized return at entry is at or above the median of the deals announced in the previous twelve months.", "",
-              "| Portfolio | Deals | Average open positions | Annual return | Volatility | Sharpe ratio | Maximum drawdown |", "|---|---:|---:|---:|---:|---:|---:|",
-              f"| All open deals | {int(rows.sum())} | {V['calendar']['mean_open_all']:.1f} | {sa['annual_return']:+.1%} | {sa['volatility']:.1%} | {sa['sharpe']:.2f} | {sa['max_drawdown']:.1%} |",
-              f"| Top half by expected annualized return | {int((rows & top_half).sum())} | {V['calendar']['mean_open_top']:.1f} | {sb['annual_return']:+.1%} | {sb['volatility']:.1%} | {sb['sharpe']:.2f} | {sb['max_drawdown']:.1%} |", "",
-              f"Top half minus all: annual return {V['calendar']['diff_return'] * 100:+.2f} points [95% CI {ci_r[0] * 100:+.2f}, {ci_r[1] * 100:+.2f}]; Sharpe ratio {V['calendar']['diff_sharpe']:+.2f} "
-              f"[{ci_s[0]:+.2f}, {ci_s[1]:+.2f}] (block bootstrap of daily returns, 21-day blocks). The Sharpe ratio is over the 1-month T-bill rate.", ""]
+        rr = {k: v[0].reindex(idxd).fillna(0.0) for k, v in ser.items()}
+        st = {k: port_stats(v, rfd) for k, v in rr.items()}
+        ci_r, ci_s = block_ci(rr["top_model"], rr["all"], rfd, rng)
+        ci_r2, ci_s2 = block_ci(rr["top_model"], rr["top_spread"], rfd, rng)
+        V["calendar"] = {**{k: {**st[k], "deals": int(sets[k].sum()), "mean_open": float(ser[k][1].reindex(idxd).fillna(0).mean())} for k in sets},
+                         "model_minus_all": {"return": st["top_model"]["annual_return"] - st["all"]["annual_return"], "return_ci95": ci_r,
+                                             "sharpe": st["top_model"]["sharpe"] - st["all"]["sharpe"], "sharpe_ci95": ci_s},
+                         "model_minus_spread": {"return": st["top_model"]["annual_return"] - st["top_spread"]["annual_return"], "return_ci95": ci_r2,
+                                                "sharpe": st["top_model"]["sharpe"] - st["top_spread"]["sharpe"], "sharpe_ci95": ci_s2},
+                         "start": str(idxd.min().date()), "end": str(idxd.max().date())}
+        fig_data[view] = (idxd, (1 + rr["all"]).cumprod(), (1 + rr["top_model"]).cumprod(), (1 + rr["top_spread"]).cumprod(), V)
+        c = V["calendar"]
+        L += [f"Calendar-time portfolio, {idxd.min().date()} to {idxd.max().date()}, daily CRSP total returns. Equal weights across open deals with a 10% position cap "
+              "(each deal gets 1 / max(open deals, 10) of the capital; the rest is cash earning nothing), rebalanced daily. "
+              "\"Top half\" holds a deal only if its score at entry is at or above the median of the deals announced in the previous twelve months.", "",
+              "| Portfolio | Deals | Average open positions | Annual return | Volatility | Sharpe ratio | Maximum drawdown |", "|---|---:|---:|---:|---:|---:|---:|"]
+        for k, lab in (("all", "All open deals"), ("top_model", "Top half by expected annualized return"), ("top_spread", "Top half by raw day-1 spread (no model)")):
+            x = c[k]
+            L.append(f"| {lab} | {x['deals']} | {x['mean_open']:.1f} | {x['annual_return']:+.1%} | {x['volatility']:.1%} | {x['sharpe']:.2f} | {x['max_drawdown']:.1%} |")
+        a, b = c["model_minus_all"], c["model_minus_spread"]
+        L += ["", f"Top half by expected annualized return minus all deals: annual return {a['return'] * 100:+.2f} points [95% CI {a['return_ci95'][0] * 100:+.2f}, {a['return_ci95'][1] * 100:+.2f}], "
+              f"Sharpe ratio {a['sharpe']:+.2f} [{a['sharpe_ci95'][0]:+.2f}, {a['sharpe_ci95'][1]:+.2f}]. Minus the top half by raw spread: annual return {b['return'] * 100:+.2f} points "
+              f"[{b['return_ci95'][0] * 100:+.2f}, {b['return_ci95'][1] * 100:+.2f}], Sharpe ratio {b['sharpe']:+.2f} [{b['sharpe_ci95'][0]:+.2f}, {b['sharpe_ci95'][1]:+.2f}] "
+              "(block bootstrap of daily returns, 21-day blocks; Sharpe ratio over the 1-month T-bill rate).", ""]
         out["views"][view] = V
     L += ["## Reading", "",
           "- A ranking adds value only if the top third beats the bottom third (or all deals) by more than the interval. Compare the model rows with the spread rows: the spread is free.",
@@ -297,21 +338,22 @@ def main() -> None:
     import matplotlib.pyplot as plt
     plt.rcParams.update({"font.size": 10, "axes.spines.top": False, "axes.spines.right": False, "figure.dpi": 150, "savefig.bbox": "tight", "axes.grid": True, "grid.alpha": 0.25})
     if "pooled" in out["views"]:
-        f_, ax = plt.subplots(1, 2, figsize=(11.5, 3.9))
+        f_, ax = plt.subplots(1, 2, figsize=(12.5, 3.9), gridspec_kw={"width_ratios": [1, 1.1]})
         V = out["views"]["pooled"]
-        ks = ["ear", "ear_stack", "spread", "spread_ann", "mkt"]
+        ks = ["ear", "ear_model", "ear_stack", "spread", "spread_ann", "mkt"]
         ypos = np.arange(len(ks))[::-1]
         d = [V["rankings"][k]["top_minus_bottom"] * 100 for k in ks]
         lo = [(V["rankings"][k]["top_minus_bottom"] - V["rankings"][k]["top_minus_bottom_ci95"][0]) * 100 for k in ks]
         hi = [(V["rankings"][k]["top_minus_bottom_ci95"][1] - V["rankings"][k]["top_minus_bottom"]) * 100 for k in ks]
         ax[0].errorbar(d, ypos, xerr=[lo, hi], fmt="o", color="#08519c", capsize=3); ax[0].axvline(0, color="k", lw=0.8)
-        ax[0].set_yticks(ypos); ax[0].set_yticklabels([RANKS[k].replace("Benchmark: ", "").replace("Expected annualized return", "Expected ann. return") for k in ks], fontsize=8); ax[0].grid(axis="y", alpha=0)
+        ax[0].set_yticks(ypos); ax[0].set_yticklabels([RANKS[k].replace("Benchmark: ", "").replace("Expected annualized return", "Exp. ann. return").replace("break probability ", "") for k in ks], fontsize=8); ax[0].grid(axis="y", alpha=0)
         ax[0].set_xlabel("Top third minus bottom third, points of annual return (95% CI)")
-        ax[0].set_title(f"Ranking test, pooled 2013-2025: {V['n']} all-cash deals, {V['adverse']} adverse breaks", loc="left", fontsize=9)
-        idxd, ca, cb, _ = fig_data["pooled"]
-        ax[1].plot(idxd, ca, color="#9e9e9e", label="all open deals"); ax[1].plot(idxd, cb, color="#08519c", label="top half by expected annualized return")
+        ax[0].set_title(f"Ranking test, pooled 2013-2025 ({V['n']:,} all-cash deals)", loc="left", fontsize=9)
+        idxd, ca, cb, cs, _ = fig_data["pooled"]
+        ax[1].plot(idxd, ca, color="#9e9e9e", label="all open deals"); ax[1].plot(idxd, cs, color="#fd8d3c", label="top half by raw spread (no model)")
+        ax[1].plot(idxd, cb, color="#08519c", label="top half by expected annualized return")
         ax[1].set_ylabel("Growth of 1 (before costs)"); ax[1].legend(frameon=False, fontsize=8)
-        ax[1].set_title("Calendar-time portfolio, daily CRSP returns", loc="left", fontsize=9)
+        ax[1].set_title("Calendar-time portfolio, 10% position cap", loc="left", fontsize=9)
         f_.tight_layout(); f_.savefig(fig / "expected_return.png"); plt.close(f_)
     print("\n".join(L))
 

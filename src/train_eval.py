@@ -370,7 +370,7 @@ def main() -> None:
         keep["shap"] = (contrib, B, names, top)
         # artefacts for the demo (git-ignored)
         art = ROOT / "artifacts"; art.mkdir(exist_ok=True)
-        with open(art / "final_tabular_shap.pkl", "wb") as fh:
+        with open(art / f"final_tabular_shap{suffix}.pkl", "wb") as fh:      # suffix: the synthetic smoke test must not overwrite the real file
             pickle.dump({"deal_id": D.deals["deal_id"].to_numpy()[te], "contrib": contrib.astype(np.float32), "names": names,
                          "values": B.astype(np.float32)}, fh)
 

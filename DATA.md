@@ -249,6 +249,10 @@ code), plus one earlier year of target returns for volatility and beta. How deal
 date covered: `results/crsp_link.md`. Price checks against the export and against the Capital IQ monthly closes:
 `results/crsp_prices.md`.
 
+Derived from the same pull, no further data: day-1 spread and market-implied probability, the backtest legs, the daily
+return series of each deal, pre-announcement run-up, volatility and beta (`src/crsp_prices.py`), and the day-1 signals of
+`src/day1_signals.py` (acquirer return, abnormal target volume, idiosyncratic volatility).
+
 ## 6. Hoberg-Phillips TNIC-3 (public, downloaded once)
 
 Product-similarity pairs of Compustat firms by year (Hoberg and Phillips 2010, 2016), used for the antitrust-overlap
