@@ -2,7 +2,7 @@
 write the cleaned deal table to data/interim/deals.parquet.
 
 Usage:
-    python src/prepare.py                      # real export at data/raw/ciq_transactions.xls
+    python src/prepare.py                      # real export at data/raw/ciq_transactions_v2.xls
     python src/prepare.py --input data/sample/synthetic_ciq_export.csv --tag synthetic
 
 Nothing written by this script may be committed: the deal table contains licensed
@@ -65,6 +65,53 @@ COLS = {
     "Security Tickers [Target/Issuer]": "security_tickers",
     "SIC Codes (Primary Code Only) [Target/Issuer]": "sic",
 }
+# Additional columns of the extended (v2) export. Optional: the base export lacks them.
+EXTRA_COLS = {
+    "Net Assumed Liabilities ($USDmm, Historical rate)": "net_assumed_liabilities",
+    "Implied Equity Value/LTM Net Income (x)": "pe_multiple",
+    "Implied Equity Value/Book Value (x)": "pb_multiple",
+    "Implied Enterprise Value/Revenues (x)": "ev_revenue",
+    "Total Cash ($USDmm, Historical rate)": "total_cash_consideration",
+    "Total Stock ($USDmm, Historical rate)": "total_stock_consideration",
+    "Total Earnout/Contingent Payments ($USDmm, Historical rate)": "earnout_consideration",
+    "Sell-Side Termination Fee ($USDmm, Historical rate)": "sell_side_term_fee_usd",
+    "Buy-Side Termination Fee ($USDmm, Historical rate)": "buy_side_term_fee_usd",
+    "Acquirer LTM Return % (%)": "acq_ltm_return",
+    "Target % of 52-Week Low (%)": "pct_52w_low",
+    "Acquirer % of 52-Week High (%)": "acq_pct_52w_high",
+    "Acquirer Market Cap 1-Day Prior ($USDmm, Historical rate)": "acq_mktcap",
+    "Transaction Comments": "transaction_comments",
+    "Pre-Deal Situation": "pre_deal_situation",
+    "Deal Resolution": "deal_resolution",
+    "Advisors To Target": "advisors_target",
+    "Advisors To Buyers": "advisors_buyers",
+    "Transaction Primary Features": "primary_features",
+    "Transaction Secondary Features": "secondary_features",
+    "Majority / Minority Stakes": "majority_minority",
+    "Change of Control": "change_of_control",
+    "Related Transactions": "related_transactions",
+    "Target/Issuer LTM Financials - Total Revenue (at Announcement) ($USDmm, Historical rate)": "tgt_revenue",
+    "Target/Issuer LTM Financials - EBITDA (at Announcement) ($USDmm, Historical rate)": "tgt_ebitda",
+    "Target/Issuer LTM Financials - Net Income (at Announcement) ($USDmm, Historical rate)": "tgt_net_income",
+    "Target/Issuer LTM Financials - Total Common Equity (at Announcement) ($USDmm, Historical rate)": "tgt_equity",
+    "Target/Issuer LTM Financials - Total Debt (at Announcement) ($USDmm, Historical rate)": "tgt_debt",
+    "Target/Issuer LTM Financials - Total Cash & ST Investments (at Announcement) ($USDmm, Historical rate)": "tgt_cash",
+    "Target/Issuer LTM Financials - Total Assets (at Announcement) ($USDmm, Historical rate)": "tgt_assets",
+    "Acquirer LTM Financials - Total Revenue (at Announcement) ($USDmm, Historical rate)": "acq_revenue",
+    "Acquirer LTM Financials - EBITDA (at Announcement) ($USDmm, Historical rate)": "acq_ebitda",
+    "Acquirer LTM Financials - Net Income (at Announcement) ($USDmm, Historical rate)": "acq_net_income",
+    "Acquirer LTM Financials - Total Debt (at Announcement) ($USDmm, Historical rate)": "acq_debt",
+    "Acquirer LTM Financials - Total Cash & ST Investments (at Announcement) ($USDmm, Historical rate)": "acq_cash",
+    "Acquirer LTM Financials - Total Assets (at Announcement) ($USDmm, Historical rate)": "acq_assets",
+    "Primary Industry [Buyers/Investors]": "buyer_industry",
+    "Primary Sector [Buyers/Investors]": "buyer_sector",
+    "Buyer Type [Buyers/Investors]": "buyer_type",
+    "Company Type [Buyers/Investors]": "buyer_company_type",
+}
+EXTRA_TEXT = ["transaction_comments", "pre_deal_situation", "deal_resolution", "advisors_target", "advisors_buyers",
+              "primary_features", "secondary_features", "majority_minority", "change_of_control", "related_transactions",
+              "buyer_industry", "buyer_sector", "buyer_type", "buyer_company_type"]
+EXTRA_NUM = [v for v in EXTRA_COLS.values() if v not in EXTRA_TEXT]
 DATE_COLS = ["all_announced_date", "announced_date", "definitive_date", "closed_date", "cancelled_date"]
 NUM_COLS = [
     "deal_value", "implied_equity_value", "implied_ev", "ev_ebitda", "pct_sought", "offer_per_share",
@@ -90,15 +137,17 @@ def load_export(path: Path) -> pd.DataFrame:
     missing = [c for c in COLS if c not in df.columns]
     if missing:
         raise ValueError(f"Export is missing expected columns: {missing}")
-    df = df[list(COLS)].rename(columns=COLS)
+    extra = {k: v for k, v in EXTRA_COLS.items() if k in df.columns}
+    df = df[list(COLS) + list(extra)].rename(columns={**COLS, **extra})
     # Drop the footer rows ("*Denotes proprietary information." etc.): no transaction id.
     df = df[df["deal_id"].notna()].copy()
     for c in DATE_COLS:
         df[c] = pd.to_datetime(df[c], errors="coerce")
-    for c in NUM_COLS:
+    num_cols = NUM_COLS + [c for c in EXTRA_NUM if c in df.columns]
+    for c in num_cols:
         df[c] = pd.to_numeric(df[c], errors="coerce")
     for c in df.columns:
-        if c not in DATE_COLS and c not in NUM_COLS:
+        if c not in DATE_COLS and c not in num_cols:
             df[c] = df[c].astype("string").str.strip()
             df[c] = df[c].replace({"-": pd.NA, "": pd.NA})
     return df.reset_index(drop=True)
@@ -140,7 +189,8 @@ def apply_filters(df: pd.DataFrame) -> tuple[pd.DataFrame, list[dict]]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--input", default=str(ROOT / "data/raw/ciq_transactions.xls"))
+    ap.add_argument("--input", default=str(ROOT / "data/raw/ciq_transactions_v2.xls"),
+                    help="extended export (v2); the base export data/raw/ciq_transactions.xls also works")
     ap.add_argument("--tag", default="real", help="'real' or 'synthetic'; controls output paths")
     args = ap.parse_args()
 
