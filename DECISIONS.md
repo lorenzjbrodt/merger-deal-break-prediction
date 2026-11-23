@@ -421,3 +421,8 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     without changes. One display defect was found and fixed in `app/demo.py`: a conditional expression used as a
     statement made Streamlit print its own help text under the similar-deals table; it is now an if/else statement.
     No result, number or figure changed. The site title in `docs/_config.yml` now matches the page heading.
+121. **Demo renamed to the project framing.** Page title "Deal underwriting"; main title "Underwriting an announced
+    deal: break risk, time to closing and loss if it breaks". The underwriting row (time to closing, loss if it
+    breaks, expected annualized return) now comes first, directly under the deal heading and above the break-risk row;
+    the deal name and the synthetic-sample notice stay above it so the numbers are never shown without them. The
+    three screenshots in `figures/` were regenerated with `app/screenshots.py --force-synthetic`. No number changed.

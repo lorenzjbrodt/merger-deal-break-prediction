@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 import build_demo_artifacts as B   # noqa: E402
 import features as F               # noqa: E402
 
-st.set_page_config(page_title="Deal break risk", layout="wide")
+st.set_page_config(page_title="Deal underwriting", layout="wide")
 
 NICE = {
     "log_deal_value": "Deal size", "premium_1d": "Premium (1 day)", "cash_pct": "Cash share of consideration", "solicited": "Solicited approach",
@@ -88,7 +88,7 @@ def headline(p: float, pct: float, base: float, p_mkt):
 
 
 def underwriting(u, spread):
-    """Second row: the three numbers an arbitrageur underwrites and the expected annualized return they imply."""
+    """First row: the three numbers an arbitrageur underwrites and the expected annualized return they imply."""
     if not u:
         st.caption("Underwriting view (time to closing, loss if it breaks, expected annualized return): not available for this deal.")
         return
@@ -102,7 +102,7 @@ def underwriting(u, spread):
 
 
 art = load()
-st.title("Will this deal close? Break risk at announcement")
+st.title("Underwriting an announced deal: break risk, time to closing and loss if it breaks")
 if art["synthetic"]:
     st.warning("SYNTHETIC SAMPLE. The real artefacts are not on this machine, so the app runs on made-up deals. Numbers are meaningless.")
 st.caption(f"Break = cancelled for a reason other than a superior competing bid. Scores: {art['source']}. "
@@ -121,8 +121,8 @@ if mode == "Pick a test-period deal":
     st.write(f"Announced {d['announced']} | deal value ${d['deal_value']:,.0f}m | consideration: {d['consideration']}"
              + ("" if d["premium_1d"] is None else f" | premium {d['premium_1d']:.0f}%")
              + ("" if d["spread"] is None else f" | {'spread at first monthly mark' if art.get('price_source') == 'Capital IQ monthly' else 'day-1 spread'} {d['spread']:.1%}"))
-    headline(d["score"], d["percentile"], art["base_rate"], d["p_mkt"])
     underwriting(d.get("underwriting"), d["spread"])
+    headline(d["score"], d["percentile"], art["base_rate"], d["p_mkt"])
     if show:
         out = {"closed": "The deal closed.", "topped": "The deal was topped by a higher bid.", "adverse_break": "The deal broke."}[d["outcome"]]
         (st.error if d["outcome"] == "adverse_break" else st.success)(f"Outcome: {out}")
