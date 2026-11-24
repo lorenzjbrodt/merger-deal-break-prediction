@@ -95,7 +95,7 @@
 
 ## Slide 3. Problem
 
-- Kicker: PROBLEM (detail: appendix A1 and A3).
+- Kicker: PROBLEM (detail: appendix A1 and A4).
 - Headline: A merger arbitrage position earns about 1.4% in 95 of 100 deals and loses about 21 times that in the 3
   that break.
 - Exhibit 1: "Median return to the fund by outcome, in % of the day-1 price" (bar labels without the % sign).
@@ -108,7 +108,7 @@
     medians shown.
 - Exhibit 2: "Three estimates and their benchmarks", columns "Estimate" and "What the fund uses today".
   - Time to closing: deal-type median and the parties' stated guidance.
-  - Probability of an adverse break: day-1 spread.
+  - Break probability: day-1 spread.
   - Loss if the deal breaks: fallback to the pre-announcement price.
 - Formula box: expected annualized return = (P(close) x spread + P(topped) x topping gain - P(break) x loss) / years
   to resolution. In `src/expected_return.py` the topping gain is spread + bump and the loss enters as a negative
@@ -132,13 +132,14 @@
 ## Slide 4. AI solution
 
 - Kicker: AI SOLUTION (detail: appendix A1).
-- Headline: An LLM reads each press release into 29 contract terms for 4,468 deals, and the break and timing models
-  are tested on later years only.
+- Headline: An LLM reads press releases into 29 contract terms for 4,468 deals, and the break and timing models are
+  tested on later years only.
 - Exhibit 1: "How the AI underwrites a new deal", a pipeline read left to right.
   - 1 Data: 4,468 deals, US public deals, 2001 to 2025 (`results/deck_numbers.json`, `core_sample.total`).
-  - 2 LLM: 29 terms, read from each press release, with the stated closing date (the 26 fields kept in
-    `results/llm_extraction_validation.md`, with buyer type coded as four indicators and structure as one).
-  - 3 Models: 3 estimates, timing, break risk and loss, from day-1 data.
+  - 2 LLM: 29 terms, press releases of 88% of deals, with the stated closing date (88%: `results/text_coverage.md`,
+    all deals; 29: the 26 fields kept in `results/llm_extraction_validation.md`, with buyer type coded as four
+    indicators and structure as one).
+  - 3 Models: 3 estimates, model timing, break risk from day-1 prices, past average loss.
   - 4 Decision: expected return, annualized, to rank deals within each year.
 - Exhibit 2: "Test design by estimate".
   - Time to closing: trained on 2001 to 2018; tested on 1,026 completed deals, 2019 to 2025 (`results/duration.json`,
@@ -283,19 +284,19 @@
   - Against the top third by raw spread: +2.48 [0.95, 4.14] (`model_top_minus_benchmark_top.spread`).
 - Exhibit 3: "Run as a daily portfolio, top half". Ranked by the model: annual return 9.57%, Sharpe 0.80; ranked by
   raw spread: 8.70%, 0.77 (`results/expected_return.json`, `calendar.top_model` and `calendar.top_spread`).
-- Confidence box: the daily edge of +0.87 points [-0.88, +2.60] is unconfirmed (`calendar.model_minus_spread`); the
-  top third holds 22 of the 38 adverse breaks, so part of its return is pay for risk
-  (`rankings.ear.terciles.top.adverse`).
-- Note(s): 1,205 all-cash deals 2013 to 2025, thirds within each year; all estimates from earlier years, break risk
-  from day-1 market data; the benchmark divides the spread by the deal-type median time to closing; returns are
-  profit over capital-years, before costs; 95% bootstrap intervals from unrounded values; holding every deal returned
-  6.35% a year (`rankings.ear.all`); daily portfolio with equal weights, rebalanced daily, 2013 to 2026 (A5).
+- Confidence box: daily edge over raw spread +0.87 points [-0.88, +2.60], unconfirmed (`calendar.model_minus_spread`);
+  the top third holds 22 of the 38 adverse breaks, so part is pay for risk (`rankings.ear.terciles.top.adverse`).
+- Note(s): 1,205 all-cash deals 2013 to 2025, thirds within each year; estimates from earlier years, break risk from a
+  day-1 market model or the spread (cross-validated); benchmark is the spread divided by the deal-type median time to
+  closing; profit over capital-years, before costs; 95% bootstrap intervals from unrounded values; holding every deal
+  returned 6.35% a year (`rankings.ear.all`); rebalanced daily (A5).
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, FRED; own analysis.
 - Speaker notes:
   - Video: 0:20.
   - Topic: what the three estimates are worth when they are combined into an expected annualized return.
   - Orient: deals are sorted into thirds each year; dark bars rank by the model, gray bars rank by the day-1 spread
-    annualized with the deal-type median, the strongest free benchmark; the height is the realized annual return.
+    annualized with the deal-type median, a simple free benchmark (annualizing with the parties' guidance would be the
+    next test); the height is the realized annual return.
   - Point: the top third by the model earned 12.26% a year, 1.67 points more than the top third by annualized spread;
     on $100 million that is $1.67 million a year.
   - Point: against the raw spread the gain is 2.48 points, so part of the gain is simply annualizing the spread, and
