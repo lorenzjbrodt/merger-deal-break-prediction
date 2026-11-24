@@ -143,21 +143,23 @@
 - Headline: On break risk, the model does not beat the day-1 spread, with an AUC of 0.60 against 0.72 on the same
   deals.
 - Exhibit 1: "ROC AUC on the same deals". Break model 0.60 [0.48, 0.70]; day-1 market spread 0.72 [0.64, 0.80];
-  difference -0.12 [-0.28, +0.01]. Source: `results/market_benchmark.md`, pooled, 1,205 priced all-cash deals with 38
-  adverse breaks (0.599 [0.476, 0.702]; 0.721 [0.642, 0.800]; -0.121 [-0.282, +0.005]). The upper bound is +0.0046
-  unrounded in `results/market_benchmark.json`, which rounds to +0.00; the slide's +0.01 rounds the three-decimal value.
+  difference -0.12 [-0.28, +0.00]. Source: `results/market_benchmark.md`, pooled, 1,205 priced all-cash deals with 38
+  adverse breaks (0.599 [0.476, 0.702]; 0.721 [0.642, 0.800]; -0.121 [-0.282, +0.005]; the upper bound is +0.0046
+  unrounded in `results/market_benchmark.json`).
 - Exhibit 2: "Change in AUC from added information", all 2,176 core deals announced 2013 to 2025.
-  - Buyer and target financials: +0.03 [-0.03, +0.08]. Source: `results/pooled_oot.md`, 3x minus 3,
-    +0.025 [-0.025, +0.076]. The lower bound is -0.0248 unrounded in `results/pooled_oot.json`, which rounds to -0.02;
-    the slide's -0.03 rounds the three-decimal value.
+  - Buyer and target financials: +0.03 [-0.02, +0.08]. Source: `results/pooled_oot.md`, 3x minus 3,
+    +0.025 [-0.025, +0.076]; the lower bound is -0.0248 unrounded in `results/pooled_oot.json`.
   - Announcement text and LLM-read terms: +0.02 [-0.01, +0.06]. Source: `results/pooled_oot.md`, 5f minus 3m,
     +0.022 [-0.014, +0.059].
   - Product overlap of buyer and target: +0.01 [-0.01, +0.02]. Source: `results/overlap.md`, pooled,
     +0.006 [-0.010, +0.019].
-  - Market conditions: -0.03 [-0.05, 0.00]. Source: `results/pooled_oot.md`, 3m minus 3x, -0.028 [-0.054, -0.002].
-  - Ten day-1 market signals, against the spread: -0.13 and -0.06. Source: `results/day1_signals.md`, the two
-    pre-specified models minus the market-implied probability, -0.125 and -0.061. The unrounded first value in
-    `results/day1_signals.json` is -0.12498, which rounds to -0.12; the slide's -0.13 rounds the three-decimal value.
+  - Market conditions: -0.03 [-0.05, -0.00]. Source: `results/pooled_oot.md`, 3m minus 3x, -0.028 [-0.054, -0.002].
+  - Ten day-1 market signals, against the spread: -0.12 and -0.06. Source: `results/day1_signals.md`, the two
+    pre-specified models minus the market-implied probability, -0.125 and -0.061; the first is -0.12498 unrounded in
+    `results/day1_signals.json`.
+- Footnotes: whiskers and brackets are 95% bootstrap intervals; a signed 0.00 shows on which side of zero a bound
+  lies; the spread is the break probability implied by the day-1 close; the last row of exhibit 2 adds the signals to
+  the market-implied probability in two pre-specified models.
 - Excluded evidence box: an LLM risk score on anonymized press releases reached 0.82, but the LLM named 92% of the
   targets. Source: `results/llm_zero_shot.md` (0.822 on test years 2019 to 2025; 92% identified).
 - Speaker notes:
@@ -166,7 +168,7 @@
   - Orient: bars start at 0.50, which means no skill; dark is the model, gray is the probability implied by the day-1
     spread; whiskers are 95% intervals.
   - Point: 0.60 for the model against 0.72 for the spread on the same 1,205 deals; the gap of 0.12 has an interval
-    from -0.28 to +0.01.
+    from -0.28 to +0.00, so it ends just above zero.
   - Point: financials, text, product overlap and market signals did not close the gap.
   - Honest result: an LLM score looked better at 0.82, but the LLM recognized 92% of the deals, so it is excluded.
   - Transition: the second estimate is where the model helps.

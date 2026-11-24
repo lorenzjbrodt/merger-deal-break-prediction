@@ -446,7 +446,9 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
 124. **SLIDE_NOTES.md rewritten** to follow the final deck slide by slide (9 main slides, a divider, appendix A1 to
     A5): headline, numbers with their result file, and the speaker bullets for each main slide, the two-minute video
     path, and a short section per appendix slide. The deck itself is not in the repository. Every number was checked
-    against `results/`; three deck values come from rounding a three-decimal value a second time (-0.13 for -0.12498,
-    +0.01 for +0.0046, -0.03 for -0.0248). The notes keep the deck's values and state the unrounded ones next to them;
-    no result changed. README and project page: the recommendation now names sizing for the realized 28% average loss,
-    and the page's "a spread of a few percent" now reads "about 1.4% at the median", as on the deck.
+    against `results/`. Three values on slide 5 had come from rounding a three-decimal value a second time (-0.13 for
+    -0.12498, +0.01 for +0.0046, -0.03 for -0.0248); they were corrected in the deck to -0.12, +0.00 and -0.02, and the
+    deck now notes that a signed 0.00 shows on which side of zero a bound lies. The notes follow the corrected deck and
+    keep the unrounded values from the result files; no result changed. README and project page: the recommendation
+    now names sizing for the realized 28% average loss, and the page's "a spread of a few percent" now reads "about
+    1.4% at the median", as on the deck.
