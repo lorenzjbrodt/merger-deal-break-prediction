@@ -35,3 +35,5 @@
 | cross_border_acquirer | 90% | 5% | 89% | yes |  |
 | acquirer_country | 62% | 5% | 60% | dropped |  |
 | stated_premium_pct | 98% | 62% | 96% | yes | numeric: equal within 10% or 1 unit |
+
+Model inputs from this extraction: the 26 fields kept above, with buyer type coded as four indicators (strategic, financial sponsor, management-led, consortium) and structure as one (tender offer), give 29 contract terms (`to_features` and `cmd_features` in `src/llm_extract.py`). The stated closing date is not among the 29: `expected_closing_months` is dropped above, and the closing date used by the time-to-closing models is read separately by `src/llm_closing.py` and enters those models as three further columns (expected days and the low and high end of the stated window).
