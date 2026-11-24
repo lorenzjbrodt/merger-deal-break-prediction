@@ -25,8 +25,9 @@ the time to closing, and the loss if it breaks.
 
 ## Method
 
-Train on 2001-2018, test on 2019-2025. A second set pools 2013-2025, each year scored by models refitted on earlier
-years only. Deals are bought one trading day after announcement and held to the outcome. Brackets: bootstrap 95% intervals.
+Train on 2001-2018, test on 2019-2025. A second set pools 2013-2025, each year scored by break and timing models
+refitted on earlier years only; loss forecasts are compared leave-one-year-out. Deals are bought one trading day after
+announcement and held to the outcome. Brackets: bootstrap 95% intervals.
 
 ## Headline results
 
@@ -37,7 +38,7 @@ years only. Deals are bought one trading day after announcement and held to the 
 | Loss if it breaks: mean return of adverse breaks | -29% | -25% |
 | Break probability, ROC AUC: model / market's day-1 spread | 0.633 / 0.643 | 0.609 / 0.721 |
 | Ranking by expected annualized return: top minus bottom third, points a year | +12.6 [+5.3, +20.3] | +10.0 [+6.5, +13.9] |
-| Top third by the model minus top third by raw spread | +4.1 [+1.6, +7.1] | +2.5 [+0.9, +4.1] |
+| Top third by the model minus top third by raw spread, points a year ($m per $100m) | +4.1 [+1.6, +7.1] | +2.5 [+0.9, +4.1] |
 
 - **For the manager**: a closing forecast 6 days better than the parties' own guidance; a ranking whose top third
   earned 12.3% a year against 6.4% for all deals; a demo with the three numbers per deal.
