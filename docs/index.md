@@ -7,13 +7,13 @@ Code and full results: <https://github.com/lorenzjbrodt/merger-deal-break-predic
 announcement (off by 47 days on average, against 64 for the median of its deal type); break risk is judged better by the market's
 spread than by any model here, and the loss when a deal breaks is large (28% on average) and close to unpredictable.
 **Recommendation.** Use the time-to-closing model to turn each spread into an expected annualized return and rank deals
-by it (top third 12.3% a year, bottom third 2.2%, before costs), read break risk off the spread, and do not size
-positions on the break model.
+by it (top third 12.3% a year, bottom third 2.2%, before costs), read break risk off the spread, and size positions
+for the realized 28% average loss rather than on the break model.
 
 ## Problem
 
-A merger-arbitrage fund buys the target's shares after a deal is announced. If the deal closes, it earns a spread of a few
-percent. If the deal breaks, it loses many times that. For every deal the portfolio manager underwrites three numbers:
+A merger-arbitrage fund buys the target's shares after a deal is announced. If the deal closes, it earns about 1.4% at
+the median; if it breaks adversely, it loses about 21 times that (1,205 priced all-cash deals announced 2013-2025). For every deal the portfolio manager underwrites three numbers:
 the probability of an adverse break, the time to closing, and the loss if it breaks. This project asks how well each can
 be predicted from what is known at announcement, and whether ranking deals by the expected annualized return they imply
 makes money out of sample.
@@ -84,8 +84,8 @@ model minus spread +0.9 points [-0.9, +2.6].
 
 ### 5. What to take from it
 
-Annualize spreads with the duration model, read break risk off the spread, and do not size positions on the break
-model. Most of the ranking profit is a risk premium: the top third holds 22 of the 38 adverse breaks.
+Annualize spreads with the duration model, read break risk off the spread, and size positions for the realized 28%
+average loss rather than on the break model. Most of the ranking profit is a risk premium: the top third holds 22 of the 38 adverse breaks.
 
 ## Limitations
 

@@ -6,8 +6,8 @@ MIT 15.071 Project 1 (Predictive AI), Lorenz J. Brodt. [Project page](https://lo
 announcement (off by 47 days on average, against 64 for the median of its deal type); break risk is judged better by the market's
 spread than by any model here, and the loss when a deal breaks is large (28% on average) and close to unpredictable.
 **Recommendation.** Use the time-to-closing model to turn each spread into an expected annualized return and rank deals
-by it (top third 12.3% a year, bottom third 2.2%, before costs), read break risk off the spread, and do not size
-positions on the break model.
+by it (top third 12.3% a year, bottom third 2.2%, before costs), read break risk off the spread, and size positions
+for the realized 28% average loss rather than on the break model.
 
 ## Problem
 
