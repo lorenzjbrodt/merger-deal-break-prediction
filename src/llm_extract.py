@@ -299,22 +299,28 @@ def to_features(df: pd.DataFrame) -> pd.DataFrame:
     return F
 
 
+FEATURE_PREFIX = {"buyer_type": ["llm_buyer_"], "structure": ["llm_structure_"], "antitrust_covenant": ["llm_antitrust_"],
+                  "regulatory_approvals": ["llm_n_regulatory_approvals"], **{f"reg_{r}": [f"llm_reg_{r.lower()}"] for r in REG_ENUM}}
+
+
+def field_columns(field: str, columns) -> list[str]:
+    """Feature columns built from one extracted field."""
+    pats = FEATURE_PREFIX.get(field, [f"llm_{field}"])
+    return [c for c in columns if any(c == p or (p.endswith("_") and c.startswith(p)) for p in pats)]
+
+
+def drop_unvalidated(F: pd.DataFrame, keep) -> pd.DataFrame:
+    """Drop the feature columns built from fields that failed validation."""
+    drop = [c for field in FIELDS + [f"reg_{r}" for r in REG_ENUM] if field not in keep for c in field_columns(field, F.columns)]
+    return F.drop(columns=sorted(set(drop)))
+
+
 def cmd_features(args) -> None:
     df = load_run(args.run)
     F = to_features(df)
     kf = WORK / "kept_fields.json"
     if kf.exists():   # drop features built from fields that failed validation
-        keep = set(json.loads(kf.read_text()))
-        prefix = {"buyer_type": ["llm_buyer_"], "structure": ["llm_structure_"], "antitrust_covenant": ["llm_antitrust_"],
-                  "regulatory_approvals": ["llm_n_regulatory_approvals"]}
-        prefix.update({f"reg_{r}": [f"llm_reg_{r.lower()}"] for r in REG_ENUM})
-        drop = []
-        for field in FIELDS + [f"reg_{r}" for r in REG_ENUM]:
-            if field in keep:
-                continue
-            pats = prefix.get(field, [f"llm_{field}"])
-            drop += [c for c in F.columns if any(c == p or (p.endswith("_") and c.startswith(p)) for p in pats)]
-        F = F.drop(columns=sorted(set(drop)))
+        F = drop_unvalidated(F, set(json.loads(kf.read_text())))
     F.to_parquet(INTERIM / "llm_terms.parquet", index=False)
     print(f"{len(F)} deals, {F.shape[1] - 1} LLM term features -> data/interim/llm_terms.parquet")
     print(", ".join(c for c in F.columns if c != "deal_id"))
@@ -364,6 +370,18 @@ def cmd_validate(args) -> None:
     for r in R.itertuples():
         st = "n/a" if pd.isna(r.agreement_when_either_stated) else f"{r.agreement_when_either_stated:.0%}"
         lines.append(f"| {r.field} | {r.agreement:.0%} | {r.both_null:.0%} | {st} | {'yes' if r.keep else 'dropped'} | {r.note} |")
+    kept = R.loc[R["keep"], "field"].tolist()
+    cols = [c for c in drop_unvalidated(to_features(a.reset_index()), set(kept)).columns if c != "deal_id"]
+    per = {f: field_columns(f, cols) for f in kept}
+    word = {1: "one", 2: "two", 3: "three", 4: "four", 5: "five"}
+    n_buy, n_str = len(per.get("buyer_type", [])), len(per.get("structure", []))
+    closing = "dropped" if "expected_closing_months" not in kept else "kept"
+    lines += ["", f"Model inputs from this extraction: the {sum(1 for v in per.values() if v)} fields kept above, with buyer type coded as "
+              f"{word.get(n_buy, n_buy)} indicators (strategic, financial sponsor, management-led, consortium) and structure as "
+              f"{word.get(n_str, n_str)} (tender offer), give {len(cols)} contract terms (`to_features` and `cmd_features` in "
+              f"`src/llm_extract.py`). The stated closing date is not among the {len(cols)}: `expected_closing_months` is {closing} "
+              "above, and the closing date used by the time-to-closing models is read separately by `src/llm_closing.py` and "
+              "enters those models as three further columns (expected days and the low and high end of the stated window)."]
     (ROOT / "results/llm_extraction_validation.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
 
