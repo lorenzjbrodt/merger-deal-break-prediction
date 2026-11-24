@@ -66,13 +66,13 @@
     (27.94 / 10.67).
   - Top-third return: 12.26% by the model against 9.78% by raw spread; "Model wins by 2.48 points". Source:
     `results/deck_numbers.json` (`ranking_test.pooled`), `results/expected_return.json`.
-- Notes: the 2.48 points have a 95% interval of 0.95 to 4.14 (`results/expected_return.json`,
+- Note(s): the 2.48 points have a 95% interval of 0.95 to 4.14 (`results/expected_return.json`,
   `model_top_minus_benchmark_top.spread`); as a daily portfolio the edge is +0.87 points a year [-0.88, +2.60]
   (`results/expected_return.json`, `calendar.model_minus_spread`); benchmarks from left to right are the day-1
   market spread, the deal-type median, the fall back to the pre-announcement price and the top third by raw spread;
   the realized loss is the mean of all 184 adverse breaks, the ranked all-cash deals lost 31.21% (slide 3,
   `results/common_sample_outcomes.md`); AUC bars start at 0.50; returns are before costs.
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
 - Speaker notes:
   - Video: not shown.
   - Topic: the answer first, four comparisons of this analysis against the benchmark a manager uses today.
@@ -104,9 +104,9 @@
   - Loss if the deal breaks: fall back to the pre-announcement price.
 - Formula box: expected annualized return = (P(close) x spread + P(topped) x (spread + bump) + P(break) x loss) /
   years to resolution (`src/expected_return.py`).
-- Note: the mean loss of the 38 breaks is 31.21% (`results/common_sample_outcomes.md`); slide 7 uses the 27.94%
+- Note(s): the mean loss of the 38 breaks is 31.21% (`results/common_sample_outcomes.md`); slide 7 uses the 27.94%
   mean of 184 adverse breaks of any consideration announced 2001 to 2025 (`results/loss_given_break.json`).
-- Sources line: S&P Capital IQ, CRSP; own analysis.
+- Source(s): S&P Capital IQ, CRSP; own analysis.
 - Speaker notes:
   - Video: 0:20.
   - Topic: what a merger arbitrage position pays.
@@ -135,11 +135,11 @@
 - Exhibit 2: "Evaluation design by announcement year". Main split: training 2001 to 2018, test 2019 to 2025. Pooled
   set: first training window from 2001, 13 test years 2013 to 2025, refitted every year.
 - Models box: gradient-boosted trees (LightGBM); an LLM reads each announcement filing into 29 contract terms.
-- Notes: models are tuned by cross-validation on training years and compared with simple rules, linear models, the
+- Note(s): models are tuned by cross-validation on training years and compared with simple rules, linear models, the
   market spread and the parties' own guidance; the target is the 198 adverse breaks in the core sample
   (`results/deck_numbers.json`, `core_sample.total`); Capital IQ and CRSP data stay out of the public repository,
   which runs on a synthetic sample.
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP via WRDS; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP via WRDS; own analysis.
 - Speaker notes:
   - Video: not shown.
   - Topic: which deals are in the sample and how the models are tested.
@@ -170,12 +170,12 @@
   - Ten day-1 market signals, against the spread: -0.12 and -0.06. Source: `results/day1_signals.md`, the two
     pre-specified models minus the market-implied probability, -0.125 and -0.061; the first is -0.12498 unrounded in
     `results/day1_signals.json`.
-- Notes: 1,205 priced all-cash deals with 38 adverse breaks; whiskers and brackets are 95% bootstrap intervals; +0.00
+- Note(s): 1,205 priced all-cash deals with 38 adverse breaks; whiskers and brackets are 95% bootstrap intervals; +0.00
   and -0.00 are bounds just above and just below zero; the spread is the break probability implied by the day-1
   close; the last row of exhibit 2 adds the signals to the market-implied probability in two pre-specified models.
 - Excluded evidence box: an LLM risk score on anonymized press releases reached 0.82, but the LLM named 92% of the
   targets. Source: `results/llm_zero_shot.md` (0.822 on test years 2019 to 2025; 92% identified).
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
 - Speaker notes:
   - Video: not shown.
   - Topic: can a model rank break risk better than the market.
@@ -205,9 +205,9 @@
   - Improvement on guidance: 6.61 days [3.86, 9.51].
 - Box for the portfolio manager: annualize each spread with the forecast; deals closed a median of 14.50 days earlier
   than the stated guidance (`results/duration.json`, `guidance_split.bias`).
-- Notes: 1,026 completed deals announced 2019 to 2025, models trained on 2001 to 2018; whiskers and brackets are 95%
+- Note(s): 1,026 completed deals announced 2019 to 2025, models trained on 2001 to 2018; whiskers and brackets are 95%
   bootstrap intervals; 807 of these deals state an expected closing; guidance is the midpoint of the stated window.
-- Sources line: S&P Capital IQ, SEC EDGAR; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR; own analysis.
 - Speaker notes:
   - Video: 0:20.
   - Topic: how long a deal takes to close, which sets the annualized return.
@@ -231,7 +231,7 @@
   3.00 / (3.00 + 27.94) = 9.70%.
 - Loss forecasts box: three models did not beat the historical average, so sizing uses the mean loss of the ranked
   all-cash deals, 31.21% (`results/loss_given_break.md`, detail on A4; `results/common_sample_outcomes.md`).
-- Sources line: S&P Capital IQ, CRSP; own analysis.
+- Source(s): S&P Capital IQ, CRSP; own analysis.
 - Speaker notes:
   - Video: 0:10.
   - Topic: how much the fund loses when a deal breaks.
@@ -262,7 +262,7 @@
 - Confidence box: as a daily portfolio the edge over the spread ranking is +0.87 points a year [-0.88, +2.60]
   (`calendar.model_minus_spread`); the top third holds 22 of the 38 adverse breaks
   (`rankings.ear.terciles.top.adverse`).
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
 - Speaker notes:
   - Video: 0:25.
   - Topic: what the three estimates are worth when they are combined into an expected annualized return.
@@ -288,11 +288,11 @@
     (`results/expected_return.json`).
 - Limitations box: 38 priced adverse breaks; returns before costs; daily-portfolio edge (+0.87 points) not confirmed.
 - Next step box: Project 2, an agent that writes this memo for each new deal.
-- Notes: steps 1 and 2 against their benchmark (slides 5 and 6); step 3 is the mean loss of the 38 adverse breaks
+- Note(s): steps 1 and 2 against their benchmark (slides 5 and 6); step 3 is the mean loss of the 38 adverse breaks
   among the ranked all-cash deals (slide 3), against 27.94% over all deals (slide 7, `results/loss_given_break.json`);
   step 4 is the difference between the top thirds, 95% interval 0.95 to 4.14 (slide 8); equal weights, no capacity
   limit.
-- Sources line: Own analysis; code and results at github.com/lorenzjbrodt/merger-deal-break-prediction.
+- Source(s): Own analysis; code and results at github.com/lorenzjbrodt/merger-deal-break-prediction.
 - Speaker notes:
   - Video: 0:10, plus 0:20 for the demo.
   - Topic: how a new deal is underwritten with these findings.
@@ -322,8 +322,8 @@
   31, buyer walked or MAC dispute 21, financing failure 8 (`results/outcome_taxonomy.md`); of the 246 other
   cancellations, 198 are in the core sample (`results/deck_numbers.json`, `core_sample`); reasons checked on a sample
   of 50 (`results/outcome_taxonomy.md`).
-- Note: reasons classified by an LLM from the vendor's deal notes and checked on a sample of 50.
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, FRED; own
+- Note(s): reasons classified by an LLM from the vendor's deal notes and checked on a sample of 50.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, FRED; own
   analysis.
 
 ## A2. Break model in the test period
@@ -337,11 +337,11 @@
   size cut-offs $350m and $1,554m (`results/segments.md`, column AUC 3x); priced test deals, break model
   0.63 [0.52, 0.73] against the day-1 spread 0.64 [0.52, 0.76] on 623 deals with 22 adverse breaks
   (`results/market_benchmark.md`).
-- Notes: 1,083 deals with 40 adverse breaks, models trained on 2001 to 2018; whiskers and brackets are 95% bootstrap
+- Note(s): 1,083 deals with 40 adverse breaks, models trained on 2001 to 2018; whiskers and brackets are 95% bootstrap
   intervals; size thirds by deal value, with cut-offs at $350m and $1,554m; 623 priced all-cash deals with 22 adverse
   breaks; slide 5 pools 2013 to 2025 with yearly refits (0.60 against 0.72), so the spread leads by less in the test
   years.
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
 
 ## A3. Model drivers and stability over time
 
@@ -355,10 +355,10 @@
   pooled 0.61 [0.54, 0.69] (`results/pooled_oot.md`); adverse break rate by year, 3.38, 3.57, 5.80, 1.54, 4.79, 4.81,
   0.62, 8.74, 3.63, 6.08, 2.70, 3.45, 2.70 (computed from the deals and adverse breaks per year in
   `results/pooled_oot.md`, 2,176 core deals).
-- Notes: SHAP on deals announced 2019 to 2025, associations used by the model and not causal effects; each year is
+- Note(s): SHAP on deals announced 2019 to 2025, associations used by the model and not causal effects; each year is
   scored by a model fitted on earlier years, pooled AUC 0.61 [0.54, 0.69]; core sample, 2,176 deals announced 2013 to
   2025.
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
 
 ## A4. Time to closing and loss in detail
 
@@ -376,11 +376,11 @@
   (`results/loss_given_break.json`, `realised`); loss forecasts, mean absolute error in points, historical average
   28.84, fall back 30.09 (+1.25 [-1.78, +4.40]), regularized regression 28.77 (-0.07 [-0.84, +0.72]), boosted trees
   28.09 (-0.75 [-1.99, +0.51]) (`results/loss_given_break.json`, `adverse.ret.loyo`).
-- Notes: 1,026 completed deals announced 2019 to 2025, the calibrated 80% interval contains 80.31% of them with a
+- Note(s): 1,026 completed deals announced 2019 to 2025, the calibrated 80% interval contains 80.31% of them with a
   median width of 113.58 days; change in mean absolute error, 95% bootstrap interval; deals announced 2001 to 2025
   with prices, total return with dividends to the day after the outcome; mean absolute error in percentage points,
   95% intervals, each year forecast from all other years.
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
 
 ## A5. Daily portfolio and attribution
 
@@ -394,11 +394,11 @@
   spread +0.87 points a year [-0.88, +2.60] (`results/expected_return.json`, `calendar`); attribution, top minus
   bottom third, all three estimates +10.01 [6.51, 13.95], without the break-risk estimate +9.45 [5.73, 13.90],
   without the timing estimate +8.15 [4.48, 12.35] (`results/expected_return.json`, `rankings`).
-- Notes: equal weights, rebalanced daily, before costs; the chart ends in December 2025, when few deals remain open;
+- Note(s): equal weights, rebalanced daily, before costs; the chart ends in December 2025, when few deals remain open;
   January 2013 to November 2026, drawdown is the largest fall from a previous high, the edge over the spread ranking
   is +0.87 points a year [-0.88, +2.60]; deals announced 2013 to 2025, 95% bootstrap intervals; a left-out estimate
   is held at its average, and leaving out timing costs the most.
-- Sources line: S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
+- Source(s): S&P Capital IQ, SEC EDGAR, CRSP; own analysis.
 - Speaker notes:
   - Q&A only: in the test period 2019 to 2025 the top third by the model earned 15.13% a year, 4.05 points
     [1.55, 7.08] more than the top third by raw spread (`results/expected_return.json`, `views.test`).
