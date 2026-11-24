@@ -286,10 +286,11 @@
   raw spread: 8.70%, 0.77 (`results/expected_return.json`, `calendar.top_model` and `calendar.top_spread`).
 - Confidence box: daily edge over raw spread +0.87 points [-0.88, +2.60], unconfirmed (`calendar.model_minus_spread`);
   the top third holds 22 of the 38 adverse breaks, so part is pay for risk (`rankings.ear.terciles.top.adverse`).
-- Note(s): 1,205 all-cash deals 2013 to 2025, thirds within each year; estimates from earlier years, break risk from a
-  day-1 market model or the spread (cross-validated); benchmark is the spread divided by the deal-type median time to
-  closing; profit over capital-years, before costs; 95% bootstrap intervals from unrounded values; holding every deal
-  returned 6.35% a year (`rankings.ear.all`); rebalanced daily (A5).
+- Note(s): 1,205 all-cash deals 2013 to 2025, thirds by year, estimates from earlier years; break risk from the better
+  of a day-1 market model and the spread, picked yearly by cross-validation (`src/expected_return.py`,
+  `results/day1_signals.md`); benchmark is the spread over the deal-type median time to closing; profit over
+  capital-years, before costs; 95% bootstrap intervals from unrounded values; holding every deal returned 6.35% a year
+  (`rankings.ear.all`); rebalanced daily (A5).
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, FRED; own analysis.
 - Speaker notes:
   - Video: 0:20.

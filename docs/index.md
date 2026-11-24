@@ -33,10 +33,11 @@ makes money out of sample.
   stated closing date, then three models (timing, break risk, loss), then an expected annualized return that ranks
   deals within each year.
 - **Evaluation.** The timing model trains on 2001-2018 and is tested on 1,026 completed deals announced 2019-2025. The
-  break probability and the ranking are refitted every year on earlier years and tested on 1,205 priced all-cash deals
-  announced 2013-2025 (the break model also on all 2,176 deals). The loss forecast for each year comes from all other
-  years, tested on 184 adverse breaks 2001-2025. Bootstrap confidence intervals throughout. Positions are entered at
-  the close one trading day after the announcement; returns are before costs.
+  break probability in the ranking comes from the better of a day-1 market model and the spread, picked yearly by
+  cross-validation, and the break probability and the ranking are refitted every year on earlier years and tested on
+  1,205 priced all-cash deals announced 2013-2025 (the break model also on all 2,176 deals). The loss forecast for each
+  year comes from all other years, tested on 184 adverse breaks 2001-2025. Bootstrap confidence intervals throughout.
+  Positions are entered at the close one trading day after the announcement; returns are before costs.
 
 ![Deals and break rates by year](figures/break_rate_by_year.png)
 
