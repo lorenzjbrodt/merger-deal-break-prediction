@@ -452,3 +452,8 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     keep the unrounded values from the result files; no result changed. README and project page: the recommendation
     now names sizing for the realized 28% average loss, and the page's "a spread of a few percent" now reads "about
     1.4% at the median", as on the deck.
+125. **Sizing at 31%** (deck v9). The recommendation, word for word on the cover, slide 2 and the slide 9 headline, is
+    now "Use the model for timing and ranking, the spread for break risk and a 31% loss for sizing". 31% is the mean
+    loss of the 38 adverse breaks among the 1,205 ranked all-cash deals (31.21%, `results/common_sample_outcomes.md`),
+    the sample the ranking and the expected annualized return use; 27.94% stays as the mean over all 184 adverse breaks
+    (slide 7). SLIDE_NOTES.md, the README and the project page follow; no result changed.
