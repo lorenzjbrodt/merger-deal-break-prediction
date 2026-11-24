@@ -18,6 +18,7 @@ All tables are aggregates from the real data. "Test" = deals announced 2019-2025
 | [overlap.md](overlap.md) | Antitrust overlap features (Hoberg-Phillips similarity, industry shares) |
 | [backtest.md](backtest.md) | Skip rules and the model-versus-market rule, daily marks |
 | [deck_numbers.json](deck_numbers.json) | Aggregates for the slide deck: monthly portfolio values, returns per third with intervals, sample counts, time-to-closing error by segment |
+| [common_sample_outcomes.md](common_sample_outcomes.md), [.json](common_sample_outcomes.json) | Outcome shares, day-1 spread, realised returns and loss-to-spread ratios on one common sample (the 1,205 ranking-test deals), with two comparison samples |
 
 ## Data, labels and checks
 

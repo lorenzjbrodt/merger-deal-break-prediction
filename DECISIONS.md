@@ -426,3 +426,17 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     breaks, expected annualized return) now comes first, directly under the deal heading and above the break-risk row;
     the deal name and the synthetic-sample notice stay above it so the numbers are never shown without them. The
     three screenshots in `figures/` were retaken using `app/screenshots.py --force-synthetic`. No number changed.
+
+## Outcomes, spread and loss on one common sample (code frozen)
+
+122. **Read-only export.** `src/common_sample_outcomes.py` writes `results/common_sample_outcomes.md` and `.json`:
+    outcome shares, the day-1 spread of closed deals, realised returns by outcome and three loss-to-spread ratios, all
+    on the 1,205 priced all-cash deals of the ranking test (1,150 closed, 38 adverse breaks, 17 topped). The sample is
+    the `priced` filter of `expected_return.py` with nothing added; the script stops if the counts or the rows differ
+    from the ranking test. The same filter gives the two comparison samples (2019-2025: 623 deals; 2001-2025: 2,461).
+    Spread and return are the fields of `crsp_prices.py`; the script first reproduces the published spread table in
+    `results/crsp_prices.md`. Nothing was refitted, no existing result file changed, and the script is not part of
+    `run_all.sh`.
+123. **Ratios.** Loss over spread uses the return of adverse breaks (sign reversed) over the day-1 spread of closed
+    deals from the same sample. Each ratio is computed from unrounded values; the calculation is also shown with the
+    two-decimal inputs, which can differ in the second decimal.

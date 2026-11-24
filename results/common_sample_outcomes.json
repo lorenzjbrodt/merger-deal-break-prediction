@@ -1,0 +1,201 @@
+{
+  "about": "Outcome shares, day-1 spread and realised returns on one common sample, so that a statement about how often deals break, what a closed deal pays and what a break costs rests on the same deals. Read-only export from the frozen results; aggregates only. Percentages with two decimals.",
+  "definitions": {
+    "sample_filter": "Core sample (signed deals without reverse mergers), all-cash consideration, usable CRSP price (deal still open at the day-1 close, pre-announcement price within 15% of the price implied by the vendor's offer and premium, day-1 spread between -50% and +100%, an exit exists), and a defined market-implied break probability (offer above the pre-announcement close). Identical to the `priced` filter of src/expected_return.py; the three samples differ only in the announcement years.",
+    "outcomes": "Closed = completed. Adverse break = cancelled for a reason other than a higher competing bid. Topped = cancelled because a higher competing bid won.",
+    "spread_day1": "Offer known on day 1 / close on t1 - 1, where t1 is the first trading day after the announcement date (results/crsp_prices.md). The offer is the per-share price in the announcement press release where it differs from the vendor's final offer.",
+    "return": "Total return of the target share (dividends included) from the close on t1 to the exit, the field behind loss_if_break in results/deck_numbers.json. Closed deals: to the closing (CRSP delisting return; the offer paid on the closing date where CRSP has no delisting record). Adverse breaks and topped deals: to the close of the first trading day after the cancellation date. Not annualized, unhedged, before costs.",
+    "loss_to_spread": "Loss = return of adverse breaks with the sign reversed; spread = day-1 spread of closed deals; both from the same sample. The ratio is computed from unrounded values; 'calculation' shows it with the two-decimal inputs."
+  },
+  "checks": [
+    "pooled_2013_2025: same rows as the ranking test in expected_return.py; deals, adverse breaks and topped deals equal results/expected_return.json (1205, 38, 17); mean return per deal (+2.27%) and mean day-1 spread (2.69%) of all deals equal the deal-weighted means of the thirds published there",
+    "test_2019_2025: same rows as the ranking test in expected_return.py; deals, adverse breaks and topped deals equal results/expected_return.json (623, 22, 6); mean return per deal (+2.62%) and mean day-1 spread (3.65%) of all deals equal the deal-weighted means of the thirds published there",
+    "spread and return columns reproduce all 6 rows of the day-1 spread table in results/crsp_prices.md (usable all-cash deals, which also include deals without a market-implied probability: deals, median and mean spread, mean return)",
+    "all_2001_2025: same filter, no published count to compare with; it contains the two samples above as subsets"
+  ],
+  "samples": {
+    "pooled_2013_2025": {
+      "title": "Common sample: priced all-cash deals announced 2013-2025 (the ranking-test sample)",
+      "deals": 1205,
+      "outcomes": {
+        "closed": {
+          "n": 1150,
+          "share_pct": 95.44
+        },
+        "adverse_break": {
+          "n": 38,
+          "share_pct": 3.15
+        },
+        "topped": {
+          "n": 17,
+          "share_pct": 1.41
+        }
+      },
+      "spread_day1_closed": {
+        "n": 1150,
+        "mean_pct": 2.51,
+        "median_pct": 1.2
+      },
+      "return_closed": {
+        "n": 1150,
+        "mean_pct": 3.19,
+        "median_pct": 1.39
+      },
+      "return_adverse_break": {
+        "n": 38,
+        "mean_pct": -31.21,
+        "median_pct": -28.91
+      },
+      "return_topped": {
+        "n": 17,
+        "mean_pct": 14.61,
+        "median_pct": 14.2
+      },
+      "loss_to_spread": [
+        {
+          "label": "mean loss / median spread",
+          "ratio": 26.08,
+          "calculation": "31.21 / 1.20 = 26.01",
+          "inputs": "mean return of adverse breaks (sign reversed) / median day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 26.01
+        },
+        {
+          "label": "mean loss / mean spread",
+          "ratio": 12.44,
+          "calculation": "31.21 / 2.51 = 12.43",
+          "inputs": "mean return of adverse breaks (sign reversed) / mean day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 12.43
+        },
+        {
+          "label": "median loss / median spread",
+          "ratio": 24.15,
+          "calculation": "28.91 / 1.20 = 24.09",
+          "inputs": "median return of adverse breaks (sign reversed) / median day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 24.09
+        }
+      ]
+    },
+    "test_2019_2025": {
+      "title": "Comparison: priced all-cash deals announced 2019-2025",
+      "deals": 623,
+      "outcomes": {
+        "closed": {
+          "n": 595,
+          "share_pct": 95.51
+        },
+        "adverse_break": {
+          "n": 22,
+          "share_pct": 3.53
+        },
+        "topped": {
+          "n": 6,
+          "share_pct": 0.96
+        }
+      },
+      "spread_day1_closed": {
+        "n": 595,
+        "mean_pct": 3.34,
+        "median_pct": 1.72
+      },
+      "return_closed": {
+        "n": 595,
+        "mean_pct": 3.99,
+        "median_pct": 1.81
+      },
+      "return_adverse_break": {
+        "n": 22,
+        "mean_pct": -37.89,
+        "median_pct": -44.87
+      },
+      "return_topped": {
+        "n": 6,
+        "mean_pct": 16.2,
+        "median_pct": 15.73
+      },
+      "loss_to_spread": [
+        {
+          "label": "mean loss / median spread",
+          "ratio": 21.96,
+          "calculation": "37.89 / 1.72 = 22.03",
+          "inputs": "mean return of adverse breaks (sign reversed) / median day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 22.03
+        },
+        {
+          "label": "mean loss / mean spread",
+          "ratio": 11.33,
+          "calculation": "37.89 / 3.34 = 11.34",
+          "inputs": "mean return of adverse breaks (sign reversed) / mean day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 11.34
+        },
+        {
+          "label": "median loss / median spread",
+          "ratio": 26.02,
+          "calculation": "44.87 / 1.72 = 26.09",
+          "inputs": "median return of adverse breaks (sign reversed) / median day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 26.09
+        }
+      ]
+    },
+    "all_2001_2025": {
+      "title": "Comparison: priced all-cash deals announced 2001-2025",
+      "deals": 2461,
+      "outcomes": {
+        "closed": {
+          "n": 2329,
+          "share_pct": 94.64
+        },
+        "adverse_break": {
+          "n": 81,
+          "share_pct": 3.29
+        },
+        "topped": {
+          "n": 51,
+          "share_pct": 2.07
+        }
+      },
+      "spread_day1_closed": {
+        "n": 2329,
+        "mean_pct": 2.43,
+        "median_pct": 1.41
+      },
+      "return_closed": {
+        "n": 2329,
+        "mean_pct": 3.25,
+        "median_pct": 1.65
+      },
+      "return_adverse_break": {
+        "n": 81,
+        "mean_pct": -29.38,
+        "median_pct": -28.83
+      },
+      "return_topped": {
+        "n": 51,
+        "mean_pct": 15.41,
+        "median_pct": 14.2
+      },
+      "loss_to_spread": [
+        {
+          "label": "mean loss / median spread",
+          "ratio": 20.87,
+          "calculation": "29.38 / 1.41 = 20.84",
+          "inputs": "mean return of adverse breaks (sign reversed) / median day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 20.84
+        },
+        {
+          "label": "mean loss / mean spread",
+          "ratio": 12.11,
+          "calculation": "29.38 / 2.43 = 12.09",
+          "inputs": "mean return of adverse breaks (sign reversed) / mean day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 12.09
+        },
+        {
+          "label": "median loss / median spread",
+          "ratio": 20.48,
+          "calculation": "28.83 / 1.41 = 20.45",
+          "inputs": "median return of adverse breaks (sign reversed) / median day-1 spread of closed deals, both in %",
+          "ratio_from_rounded_inputs": 20.45
+        }
+      ]
+    }
+  }
+}
