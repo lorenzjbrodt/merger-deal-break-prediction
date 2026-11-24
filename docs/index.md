@@ -79,7 +79,7 @@ historical average when every year is predicted from the others.
 Combining the three numbers per deal and sorting each year's all-cash deals into thirds (pooled 2013-2025, 1,205 deals):
 the top third earned 12.3% a year, the middle 3.1%, the bottom 2.2%; top minus bottom +10.0 points [+6.5, +13.9] (test
 period +12.6 [+5.3, +20.3]). The raw spread alone gives +8.4 [+5.0, +12.7]. The model's top third beats the spread's top
-third by 2.5 points [+0.9, +4.1], or $2.5m a year per $100m. In a daily calendar-time portfolio the top half by the
+third by 2.48 points [+0.95, +4.14], or $2.48m a year per $100m. In a daily calendar-time portfolio the top half by the
 model returned 9.6% a year with a Sharpe ratio of 0.80, the top half by raw spread 8.7% and 0.77, all deals 7.2% and
 0.72; model minus spread +0.9 points [-0.9, +2.6].
 
