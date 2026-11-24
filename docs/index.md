@@ -82,7 +82,7 @@ historical average when every year is predicted from the others.
 
 Combining the three numbers per deal and sorting each year's all-cash deals into thirds (pooled 2013-2025, 1,205 deals):
 the top third earned 12.26% a year, the middle 3.07%, the bottom 2.25%; top minus bottom +10.01 points [+6.51, +13.95]
-(test period +12.62 [+5.31, +20.33]). The strongest free benchmark is the annualized spread, the day-1 spread divided by
+(test period +12.62 [+5.31, +20.33]). A simple free benchmark is the annualized spread, the day-1 spread divided by
 the deal-type median time to closing; its top third earned 10.58% a year. The model's top third beats it by 1.67
 points [+0.20, +3.25], or $1.67m a year per $100m, and beats the top third by raw spread by 2.48 points [+0.95, +4.14].
 In a daily calendar-time portfolio the top half by the model returned 9.57% a year with a Sharpe ratio of 0.80, the
