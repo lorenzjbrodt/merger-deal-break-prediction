@@ -56,10 +56,10 @@
 - Kicker: SUMMARY.
 - Headline: The model cuts timing error by 16.42 days and adds 1.67 points a year, while the spread stays the better
   break signal (0.72 against 0.60).
-- Exhibits: four bar pairs, "This analysis" (dark) against "Benchmark" (gray), with a verdict band under each (dark
-  when the analysis is ahead, neutral light blue for the loss, which is measured, not modeled); a recommendation box
-  with the same words as the cover and the slide 9 headline; an agenda: Problem (3), AI solution (4), Timing (5),
-  Break risk (6), Loss (7), Impact (8), Recommendation (9), Appendix (10).
+- Exhibits: four bar pairs, "This analysis" (blue) against "Benchmark" (gray), with a verdict band under each (blue
+  when the analysis is ahead; the loss is a measured value, not modeled); a recommendation box with the same words as
+  the cover and the slide 9 headline; an agenda: Problem (3), AI solution (4), Timing (5), Break risk (6), Loss (7),
+  Impact (8), Recommendation (9), Appendix (10).
 - Numbers:
   - Timing error (days), lower is better: 47.10 against 63.52 for the deal-type median; "Model wins by 16.42 days".
     Source: `results/duration.json` (`product.split` mean absolute error 47.10; `split_full` median by structure
@@ -82,8 +82,8 @@
 - Speaker notes:
   - Video: not shown.
   - Topic: the answer first, four comparisons of this analysis against the benchmark a manager uses today.
-  - Orient: dark bars are this analysis, gray bars are the benchmark; the band under each chart gives the verdict,
-    dark when the analysis is ahead, light blue for the loss, which is a measured value and no model.
+  - Orient: blue bars are this analysis, gray bars are the benchmark; the band under each chart gives the verdict,
+    blue when the analysis is ahead; the loss is a measured value and no model.
   - Point: the model wins on timing by 16.42 days (lower is better).
   - Point: the day-1 spread ranks break risk better than the model (0.72 against 0.60), so the spread stays the break
     signal.
@@ -192,7 +192,7 @@
   - Video: 0:15.
   - Topic: how long a deal takes to close, which sets the annualized return.
   - Orient: each bar is the average miss in days, so lower is better; gray bars are benchmarks, light blue bars are
-    model steps, the dark bar is the final model.
+    model steps, the blue bar is the final model.
   - Point: the final model misses by 47.10 days against 63.52 for the deal-type median, 16.42 days less.
   - Point: it also beats the parties' own guidance by 6.61 days, with an interval from 3.86 to 9.51.
   - Why it works: the stated closing date and the contract terms read by the LLM carry most of the gain.
@@ -216,7 +216,7 @@
   - Product overlap of buyer and target: +0.01 [-0.01, +0.02]. Source: `results/overlap.md`, pooled,
     +0.006 [-0.010, +0.019].
   - Market conditions: -0.03 [-0.05, -0.00]. Source: `results/pooled_oot.md`, 3m minus 3x, -0.028 [-0.054, -0.002].
-  - Ten day-1 market signals, against the spread: -0.12 [-0.25, -0.01]. Source: `results/day1_signals.md`, logistic
+  - Ten day-1 market signals added to the spread: -0.12 [-0.25, -0.01]. Source: `results/day1_signals.md`, logistic
     day-1 model minus the market-implied probability, -0.125 [-0.246, -0.010]; unrounded -0.12498 [-0.2465, -0.0103]
     in `results/day1_signals.json`.
 - Excluded evidence box: an LLM risk score on anonymized press releases reached 0.82, but the LLM identified 92% of
@@ -230,8 +230,8 @@
 - Speaker notes:
   - Video: not shown.
   - Topic: can a model rank break risk better than the market.
-  - Orient: bars start at 0.50, which means no skill; dark is the model, gray is the probability implied by the day-1
-    spread; whiskers are 95% intervals.
+  - Orient: bars start at 0.50, which means no skill; blue is the model, gray is the probability implied by the
+    day-1 spread; whiskers are 95% intervals.
   - Point: 0.60 for the model against 0.72 for the spread on the same 1,205 deals; the gap of 0.12 has an interval
     from -0.28 to +0.00, so it ends just above zero.
   - Point: financials, text, product overlap and market signals did not close the gap.
@@ -258,7 +258,7 @@
   - Video: 0:10.
   - Topic: how much the fund loses when a deal breaks.
   - Orient, left: the gray bar is the usual assumption that the price falls back to its level before the
-    announcement; the dark bar is what adverse breaks lost.
+    announcement; the blue bar is what adverse breaks lost.
   - Point: 27.94% against 10.67%, a factor of 2.62.
   - Orient, right: the break probability at which a position just breaks even, for each spread; the dashed line marks
     a 3.00% spread.
@@ -286,16 +286,16 @@
   raw spread: 8.70%, 0.77 (`results/expected_return.json`, `calendar.top_model` and `calendar.top_spread`).
 - Confidence box: daily edge over raw spread +0.87 points [-0.88, +2.60], unconfirmed (`calendar.model_minus_spread`);
   the top third holds 22 of the 38 adverse breaks, so part is pay for risk (`rankings.ear.terciles.top.adverse`).
-- Note(s): 1,205 all-cash deals 2013 to 2025, thirds by year, estimates from earlier years; break risk from the better
-  of a day-1 market model and the spread, picked yearly by cross-validation (`src/expected_return.py`,
-  `results/day1_signals.md`); benchmark is the spread over the deal-type median time to closing; profit over
-  capital-years, before costs; 95% bootstrap intervals from unrounded values; holding every deal returned 6.35% a year
-  (`rankings.ear.all`); rebalanced daily (A5).
+- Note(s): 1,205 all-cash deals 2013 to 2025, thirds by year, estimates from earlier years; break risk from a day-1
+  market model (7 of 13 years) or the spread, picked by cross-validation (`results/expected_return.md`: the day-1
+  model in 7 of 13 pooled origins; `src/expected_return.py`, `results/day1_signals.md`); benchmark is the spread over
+  the deal-type median time to closing; profit over capital-years, before costs; 95% bootstrap intervals from
+  unrounded values; holding every deal returned 6.35% a year (`rankings.ear.all`); rebalanced daily (A5).
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, FRED; own analysis.
 - Speaker notes:
   - Video: 0:20.
   - Topic: what the three estimates are worth when they are combined into an expected annualized return.
-  - Orient: deals are sorted into thirds each year; dark bars rank by the model, gray bars rank by the day-1 spread
+  - Orient: deals are sorted into thirds each year; blue bars rank by the model, gray bars rank by the day-1 spread
     annualized with the deal-type median, a simple free benchmark (annualizing with the parties' guidance would be the
     next test); the height is the realized annual return.
   - Point: the top third by the model earned 12.26% a year, 1.67 points more than the top third by annualized spread;

@@ -28,11 +28,11 @@ the time to closing, and the loss if it breaks.
 Pipeline: deal data (4,468 deals), then an LLM that reads each press release into 29 contract terms and the stated
 closing date, then three models (timing, break risk, loss), then an expected annualized return that ranks deals within
 each year. Test design: the timing model trains on 2001-2018 and is tested on 1,026 completed deals announced 2019-2025;
-the break probability in the ranking comes from the better of a day-1 market model and the spread, picked yearly by
-cross-validation, and the break probability and the ranking are refitted every year on earlier years and tested on 1,205
-priced all-cash deals announced 2013-2025; the loss forecast for each year comes from all other years, tested on 184
-adverse breaks 2001-2025. Deals are bought one trading day after announcement and held to the outcome. Brackets:
-bootstrap 95% intervals.
+the break probability in the ranking comes from the day-1 model in 7 of 13 origins and otherwise from the market-implied
+probability, picked by cross-validation (the day-1 model for the test period), and the break probability and the ranking
+are refitted every year on earlier years and tested on 1,205 priced all-cash deals announced 2013-2025; the loss
+forecast for each year comes from all other years, tested on 184 adverse breaks 2001-2025. Deals are bought one trading
+day after announcement and held to the outcome. Brackets: bootstrap 95% intervals.
 
 ## Headline results
 
