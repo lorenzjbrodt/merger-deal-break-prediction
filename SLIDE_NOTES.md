@@ -10,11 +10,12 @@
 - Slide text below is verbatim. "Numbers" bullets name the result file each figure comes from; "computed" marks
   arithmetic on figures shown on the same page.
 
-## Video path (1:50)
+## Video path (2:00)
 
-- Order: page 1, 4, 5, 3, 9, 10, then the demo.
-- Timings: page 1 0:05; page 4 0:20; page 5 0:15; page 3 0:20 (shown after page 5); page 9 0:20; page 10 0:15; demo
-  0:15 (`streamlit run app/demo.py`). Total 1:50.
+- A pitch without a live demo, pages in the order 1, 4, 5, 3, 9, 10.
+- Timings: page 1 0:05; page 4 0:30; page 5 0:20; page 3 0:30 (shown after page 5); page 9 0:15; page 10 0:20. Total
+  2:00. The repo link is shown at the end.
+- The speaker notes in the deck give page 4 0:25 and page 9 0:20; the total is 2:00 either way.
 - Not shown in the video: pages 2, 6, 7, 8, and the appendix (11 to 16).
 
 ## Page 1. Cover
@@ -58,7 +59,7 @@
 - Note(s): (1) AUC = chance a broken deal ranks riskier than a closed one; bars from 0.50; (2) 184 breaks; sizing uses
   31.21% (page 8); (3) 95% interval of the gap 0.20 to 3.25; daily edge not confirmed (page 9).
 - Speaker notes:
-  - Video: 0:20, shown after page 5
+  - Video: 0:30, shown after page 5
   - Timing and ranking improve; the spread stays the better break signal; losses are far larger than assumed
 - Numbers:
   - 47.10 and 63.52: `results/duration.json` (`product.split.scores.product.mae`, `split_full.scores.median_structure.mae`);
@@ -93,7 +94,7 @@
 - Note(s): (1) Medians of 1,205 priced all-cash deals, 2013 to 2025; 28.91 / 1.39 = 20.80; spread = offer price / day-1
   close - 1.
 - Speaker notes:
-  - Video: 0:20
+  - Video: 0:25
   - Close earns 1.39%, break costs 28.91%; three estimates decide the value
 - Numbers: all from `results/common_sample_outcomes.md` and `.json` (`pooled_2013_2025`: 1,205 deals, 1,150 closed, 38
   adverse breaks, 17 topped; outcome shares and median returns); 20.80 computed from the two medians shown. Formula:
@@ -124,7 +125,7 @@
 - Note(s): US public targets above $100m with a signed agreement; models tuned by cross-validation on training years;
   corrections in A1, alternative models in A2 and A4.
 - Speaker notes:
-  - Video: 0:15
+  - Video: 0:20
   - LLM reads press releases, models make three estimates, each tested on unseen deals
 - Numbers:
   - 4,468: `results/deck_numbers.json` (`core_sample.total`); filter steps in `results/sample_filters.json`
@@ -266,7 +267,7 @@
 - Source(s): Own analysis; code and results at github.com/lorenzjbrodt/merger-deal-break-prediction.
 - Note(s): Evidence on pages 6 to 9.
 - Speaker notes:
-  - Video: 0:15, then 0:15 for the demo; order 1, 4, 5, 3, 9, 10, demo = 1:50
+  - Video: 0:20; order 1, 4, 5, 3, 9, 10 = 2:00; repo link on screen at the end, no live demo
   - Timing and ranking from the model, break risk from the spread, sizing for a 31% loss
 - Numbers: as on pages 3, 6, 7, 8, and 9; -73.01: `results/loss_given_break.json` (`realised["adverse_break | all
   years"].p10`).

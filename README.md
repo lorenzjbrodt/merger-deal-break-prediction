@@ -60,15 +60,29 @@ day-1 close and held to the outcome. Brackets are bootstrap 95% intervals.
   market conditions -0.028 [-0.054 to -0.002]; ten day-1 market signals added to the spread -0.125 [-0.246 to -0.010].
 - **Loss**: no loss forecast reliably beat the historical average (page 15).
 
+**How to read the results.** The ranking edge is significant deal by deal (top third vs. annualized spread +1.67 [0.20
+to 3.25], vs. raw spread +2.48 [0.95 to 4.14], 2019 to 2025 +3.14 [0.47 to 6.09]); the daily-portfolio test (top half,
+overlapping positions, equal weights) is positive but not significant, +0.87 [-0.88 to +2.60], so it neither confirms
+the edge nor shows it is zero. Timing contributes most: top minus bottom third falls from +10.01 to +8.15 points a year
+without the timing estimate, and to +9.45 without the break-risk estimate. Sizing (31.21% loss) is in neither test,
+which use equal weights; it lowers risk per position, not the average return.
+
 Everything else: [results/](results/README.md), [DECISIONS.md](DECISIONS.md), [SLIDE_NOTES.md](SLIDE_NOTES.md) (deck
 text and the source of every number).
 
 ## Reproduce
 
+Data and access ([DATA.md](DATA.md) has the screens and one-off setup): the S&P Capital IQ transaction screen export
+(licensed) goes to `data/raw/ciq_transactions_v2.xls`, with monthly prices in `data/raw/ciq_prices_{1,2,3}.xls`; CRSP and
+Compustat come through a WRDS account (a `wrds-pgdata` line in `~/.pgpass`, pulls cached in `data/wrds/`); FRED and
+Hoberg-Phillips files go to `data/external/`; SEC EDGAR press releases are downloaded by the pipeline (set
+`SEC_USER_AGENT`), and the LLM steps need a logged-in `claude` CLI. All of these paths are git-ignored. `./run_all.sh`
+rebuilds `results/` from them; `./run_all.sh synthetic` runs the same pipeline on synthetic rows without any license.
+
 ```bash
 python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ./run_all.sh synthetic                 # smoke test on synthetic rows
-./run_all.sh                           # real run: Capital IQ exports, `claude` CLI, WRDS (see DATA.md)
+./run_all.sh                           # real run: rebuilds results/ from the licensed data above
 .venv/bin/streamlit run app/demo.py    # demo; falls back to synthetic values
 ```
 
@@ -77,7 +91,7 @@ python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
 - **Few events**: 38 adverse breaks among ranked deals (22 in the test period); losses vary widely (10th percentile of
   all 184 at -73.01%).
 - **Before costs**: no transaction or financing costs, equal weights, and unlimited capacity.
-- **Risk premium and an unconfirmed edge**: the top third by the model holds 22 of the 38 adverse breaks (26 of 38 for
-  the annualized spread); as a daily portfolio the edge over the raw spread is not confirmed; the backtest used the
-  model's break risk in 7 of 13 years.
+- **Pay for break risk**: the model's top third holds 22 of the 38 priced adverse breaks, against 26 for the top third
+  by annualized spread, so part of the return is pay for bearing break risk. The backtest used the model's break risk
+  in 7 of 13 years.
 - **Licensed vendor data** with known flaws (final terms stored, sparse fields for canceled deals).

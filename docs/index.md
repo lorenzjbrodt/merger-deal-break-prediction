@@ -100,9 +100,9 @@ ratio of 0.80, the top half by raw spread 8.70% and 0.77, and all deals 7.19% an
 
 Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing: annualize each spread with
 the forecast, read break risk from the spread, size each position for 31.21%, and rank by expected annualized return.
-Part of the ranking profit is a risk premium: the top third by the model holds 22 of the 38 adverse breaks among ranked
-deals. Next step: run the ranking alongside the current process, with an agent underwriting each new deal (Project 2),
-and commit capital once live results confirm the edge.
+The model's top third holds 22 of the 38 priced adverse breaks, against 26 for the top third by annualized spread, so
+part of its return is pay for bearing break risk. Next step: run the ranking alongside the current process, with an
+agent underwriting each new deal (Project 2), and commit capital once live results confirm the edge.
 
 ## Limitations
 
