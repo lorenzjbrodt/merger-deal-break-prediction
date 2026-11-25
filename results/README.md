@@ -7,7 +7,7 @@ All tables are aggregates from the real data. "Test" = deals announced 2019-2025
 
 | | Test 2019 to 2025 | Pooled 2013 to 2025 |
 |---|---|---|
-| Closing date error, days (deal-type median 63.52 / 61.02) | 47.10 [42.95 to 51.49] | 43.13 |
+| Closing date error, days (median by deal type 63.52 / 61.02) | 47.10 [42.95 to 51.49] | 43.13 |
 | Deals inside the 80% interval for time to closing | 80% | 81% |
 | Break risk ranking, AUC on the same priced deals: model / day-1 spread | 0.632 / 0.643 | 0.599 / 0.721 |
 | Mean loss of adverse breaks among ranked deals | 37.89% (22 breaks) | 31.21% (38 breaks) |
