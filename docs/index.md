@@ -4,11 +4,11 @@ MIT 15.071, Project 1 (Predictive AI). Solo project by Lorenz J. Brodt.
 Code and full results: <https://github.com/lorenzjbrodt/merger-deal-break-prediction>
 
 **Result.** AI improves deal timing and ranking but does not beat the market price on break risk, and breaks cost far
-more than assumed. The closing date error is 47.10 days against 63.52 for the deal-type median. On break risk the model
-does not beat the day-1 spread: its AUC is 0.60 against 0.72 on the same deals, a gap of -0.12 AUC [-0.28 to +0.005]
-that is not significant at 95%. LLM-read contract terms improve timing but not break risk. Adverse breaks lose 27.94% on
-average (historical average of 184 breaks), 2.62x the 10.67% fallback assumption.
-**Recommendation.** Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing.
+more than assumed. The closing date error is 47.10 days against 63.52 for the median by deal type. On break risk the
+model does not beat the day-1 spread: its AUC is 0.60 against 0.72 on the same deals, a gap of -0.12 AUC [-0.28 to
++0.005] that is not significant at 95%. LLM-read contract terms improve timing but not break risk. Adverse breaks lose
+27.94% on average (historical average of 184 breaks), 2.62x the 10.67% fallback assumption.
+**Recommendation.** Use the model for timing and ranking, the spread for break risk, and a 31% loss estimate for sizing.
 Ranked by expected annualized return, the top third earned 12.26% a year, $1.67m per $100m a year more than the top
 third by annualized spread [0.20 to 3.25], before costs. Size for 31.21%, the mean loss of the 38 adverse breaks among
 ranked deals, not for the 27.94% historical average of all 184 adverse breaks.
@@ -33,7 +33,7 @@ whether ranking deals by the expected annualized return they imply makes money o
   Claude Haiku reads into 29 contract terms plus the parties' stated closing date; daily share prices from CRSP;
   product similarity of buyer and target (Hoberg-Phillips).
 - **Models and tests.** Time to closing: boosted trees on deal, firm, and LLM data, trained on 2001-2018 and tested on
-  1,026 completed deals announced 2019-2025, against the deal-type median and the parties' stated date. Break risk:
+  1,026 completed deals announced 2019-2025, against the median by deal type and the parties' stated date. Break risk:
   boosted trees on deal terms and financials, refitted each year on all earlier years and tested on 1,205 priced
   all-cash deals announced 2013-2025, against the day-1 spread. Loss if a deal breaks: the historical average, since no
   model beat it reliably, checked on 184 adverse breaks 2001-2025 with one year left out at a time, against the fallback
@@ -47,14 +47,14 @@ whether ranking deals by the expected annualized return they imply makes money o
 
 ## Results
 
-### 1. Time to closing: the model beats the deal-type median and the parties' stated date
+### 1. Time to closing: the model beats the median by deal type and the parties' stated date
 
 The median completed deal takes 107 days. Without the parties' stated closing date the model's closing date error is
-52.68 days [48.08 to 57.40] in the test period against 63.52 for the deal-type median; on the 807 deals that state a
-date it is as accurate as that date (46.86 against 46.43 days). With the stated date the model reaches 47.10 days
-[42.95 to 51.49] over all 1,026 deals (43.13 pooled) and beats the stated date by 6.61 days [3.86 to 9.51]; deals
-closed a median of 14.50 days before it. The contract terms read by the LLM cut the error by 1.55 days [-2.55 to
--0.60]. The calibrated 80% interval contains 80.31% of test-period deals.
+52.68 days [48.08 to 57.40] in the test period against 63.52 for the median by deal type; on the 807 deals that state a
+date it is as accurate as that date (46.86 against 46.43 days). With the stated date the model reaches 47.10 days [42.95
+to 51.49] over all 1,026 deals (43.13 pooled) and beats the stated date by 6.61 days [3.86 to 9.51]; deals closed a
+median of 14.50 days before it. The contract terms read by the LLM cut the error by 1.55 days [-2.55 to -0.60]. The
+calibrated 80% interval contains 80.31% of test-period deals.
 
 ![Time to closing](figures/duration.png)
 
@@ -92,21 +92,21 @@ deals the 38 adverse breaks lost 31.21% on average, which is the loss used for s
 Combining the three estimates per deal and sorting each year's all-cash deals into thirds (pooled 2013-2025, 1,205
 deals): the top third earned 12.26% a year, the middle 3.07%, and the bottom 2.25%; top minus bottom +10.01 points
 [+6.51 to +13.95] (test period +12.62 [+5.31 to +20.33]). A simple free benchmark is the annualized spread, the day-1
-spread divided by the deal-type median time to closing; its top third earned 10.58% a year. The model's top third beats
-it by 1.67 points [+0.20 to +3.25], or $1.67m a year per $100m, and beats the top third by raw spread by 2.48 points
-[+0.95 to +4.14]. In a daily calendar-time portfolio the top half by the model returned 9.57% a year with a Sharpe
-ratio of 0.80, the top half by raw spread 8.70% and 0.77, and all deals 7.19% and 0.72; the edge over the raw spread,
-+0.87 points [-0.88 to +2.60], is not confirmed.
+spread divided by the median time to closing by deal type; its top third earned 10.58% a year. The model's top third
+beats it by 1.67 points [+0.20 to +3.25], or $1.67m a year per $100m, and beats the top third by raw spread by 2.48
+points [+0.95 to +4.14]. In a daily calendar-time portfolio the top half by the model returned 9.57% a year with a
+Sharpe ratio of 0.80, the top half by raw spread 8.70% and 0.77, and all deals 7.19% and 0.72; the edge over the raw
+spread, +0.87 points [-0.88 to +2.60], is not confirmed.
 
 ![Ranking test and calendar-time portfolio](figures/expected_return.png)
 
 ### 5. Recommendation
 
-Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing: annualize each spread with
-the forecast, read break risk from the spread, size each position for 31.21%, and rank by expected annualized return.
-The model's top third holds 22 of the 38 priced adverse breaks, against 26 for the top third by annualized spread, so
-part of its return is pay for bearing break risk. Next step: run the ranking alongside the current process, with an
-agent underwriting each new deal (Project 2), and invest once live results confirm the edge.
+Use the model for timing and ranking, the spread for break risk, and a 31% loss estimate for sizing: annualize each
+spread with the forecast, read break risk from the spread, size each position for 31.21%, and rank by expected
+annualized return. The model's top third holds 22 of the 38 priced adverse breaks, against 26 for the top third by
+annualized spread, so part of its return is pay for bearing break risk. Next step: run the ranking alongside the current
+process, with an agent underwriting each new deal (Project 2), and invest once live results confirm the edge.
 
 ## Limitations
 

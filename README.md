@@ -3,15 +3,15 @@
 MIT 15.071 Project 1 (Predictive AI), Lorenz J. Brodt. [Project page](https://lorenzjbrodt.github.io/merger-deal-break-prediction/)
 
 **Result.** AI improves deal timing and ranking but does not beat the market price on break risk, and breaks cost far
-more than assumed (deck page 3). The closing date error is 47.10 days against 63.52 for the deal-type median. On break
-risk the model does not beat the day-1 spread: its AUC is 0.60 against 0.72 on the same deals, a gap of -0.12 AUC [-0.28
-to +0.005] that is not significant at 95%. LLM-read contract terms cut the timing error and do not measurably improve
-break risk. Adverse breaks lose 27.94% on average (184 breaks), 2.62x the 10.67% fallback assumption.
+more than assumed (deck page 3). The closing date error is 47.10 days against 63.52 for the median by deal type. On
+break risk the model does not beat the day-1 spread: its AUC is 0.60 against 0.72 on the same deals, a gap of -0.12 AUC
+[-0.28 to +0.005] that is not significant at 95%. LLM-read contract terms cut the timing error and do not measurably
+improve break risk. Adverse breaks lose 27.94% on average (184 breaks), 2.62x the 10.67% fallback assumption.
 
-**Recommendation.** Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing (page
-10). Ranked by expected annualized return, the top third earned 12.26% a year, $1.67m per $100m a year more than the top
-third by annualized spread [0.20 to 3.25], before costs. Positions are sized for 31.21%, the mean loss of the 38 adverse
-breaks among ranked deals.
+**Recommendation.** Use the model for timing and ranking, the spread for break risk, and a 31% loss estimate for sizing
+(page 10). Ranked by expected annualized return, the top third earned 12.26% a year, $1.67m per $100m a year more than
+the top third by annualized spread [0.20 to 3.25], before costs. Positions are sized for 31.21%, the mean loss of the 38
+adverse breaks among ranked deals.
 
 ## Problem and data (licensed data is not in the repo: [DATA.md](DATA.md))
 
@@ -32,7 +32,7 @@ A merger arbitrage fund buys the target after a deal is announced. At the median
 | Method | Boosted trees on deal, firm, and LLM data | Boosted trees on deal terms and financials | Historical average; no model beat it reliably |
 | Learns from | Deals announced 2001 to 2018 | All earlier years, refitted each year | All other years, one year left out at a time |
 | Tested on | 1,026 completed deals, 2019 to 2025 | 1,205 priced all-cash deals, 2013 to 2025 | 184 adverse breaks, 2001 to 2025 |
-| Benchmark | Deal-type median and parties' stated date | Day-1 spread | Fallback assumption |
+| Benchmark | Median by deal type and parties' stated date | Day-1 spread | Fallback assumption |
 
 The three estimates give each deal's expected annualized return, (P(close) x spread + P(topped) x topping gain -
 P(break) x loss) / years to resolution, which ranks the deals each year on earlier years only. In the ranking, break

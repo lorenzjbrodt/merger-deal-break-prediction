@@ -22,7 +22,8 @@
 - Kicker: 15.071 THE AI EDGE | PROJECT 1: PREDICTIVE AI
 - Headline: AI underwriting for merger arbitrage
 - Subline: When a deal closes, whether it breaks, at what cost
-- Byline: Prepared for the portfolio manager of a merger arbitrage fund / Lorenz Brodt | November 2026
+- Byline: Prepared for the portfolio manager of a merger arbitrage fund / Lorenz Brodt | November 2026 / Code and
+  results: github.com/lorenzjbrodt/merger-deal-break-prediction
 - Speaker notes:
   - Video: 0:05
   - Where AI helps a merger arbitrage fund underwrite a deal
@@ -33,7 +34,7 @@
 - Items (marker, title, subtitle, page):
   - I Executive summary: Results and recommendation on one page (3)
   - 1 Problem: What a merger arbitrage position earns and loses (4)
-  - 2 Data and methodology: How LLM and machine learning models produce the three estimates (5)
+  - 2 Data and methodology: How deal data, an LLM, and machine learning produce the three estimates (5)
   - 3 Time to closing: How long a deal takes to close (6)
   - 4 Break risk: How likely a deal is to break (7)
   - 5 Loss if a deal breaks: What the fund loses when a deal breaks (8)
@@ -48,15 +49,16 @@
 - Kicker: EXECUTIVE SUMMARY (marker I)
 - Headline: AI improves deal timing and ranking but does not beat the market price on break risk, and breaks cost far
   more than assumed
-- Exhibit "Closing date error, in days": Model 47.10, Deal-type median 63.52; label "-16.42 days".
+- Exhibit "Closing date error, in days": Model 47.10, Median by deal type 63.52; label "-16.42 days".
 - Exhibit "Break risk ranking, AUC(1)": Model 0.60, Day-1 spread 0.72; label "-0.12 AUC".
 - Exhibit "Loss if a deal breaks, in %(2)": Historical average 27.94, Fallback assumption 10.67; label "2.62x".
 - Exhibit "Top-third return, in % a year(3)": Model 12.26, Annualized spread 10.58; label "+1.67 points".
-- Box: Recommendation: Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing
+- Box: Recommendation: Use the model for timing and ranking, the spread for break risk, and a 31% loss estimate for
+  sizing
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
-- Note(s): (1) AUC = chance a broken deal ranks riskier than a closed one; bars from 0.50; (2) 184 breaks; sizing uses
-  31.21% (page 8); (3) 95% interval of the gap 0.20 to 3.25; daily edge not confirmed (page 9).
+- Note(s): (1) AUC = chance a broken deal ranks riskier than a closed one; bars from 0.50; (2) 184 breaks; no model
+  beat it; size for 31.21% (page 8); (3) 95% interval 0.20 to 3.25; daily edge not confirmed (page 9).
 - Speaker notes:
   - Video: 0:30, shown after page 5
   - Timing and ranking improve; the model does not beat the spread on break risk; losses are far larger than assumed
@@ -86,7 +88,7 @@
   - Topped by a higher bid, 1.41% of deals: +14.20
   - Label: about 21x the gain of a closed deal
 - Table "Three estimates and the benchmark for each" (Estimate, Benchmark):
-  - Time to closing: Deal-type median and the parties' stated closing date
+  - Time to closing: Median by deal type and the parties' stated closing date
   - Break risk: Day-1 spread (market-implied)
   - Loss if a deal breaks: Fallback assumption: price returns to its pre-announcement level
 - Source(s): S&P Capital IQ, CRSP via WRDS; own analysis.
@@ -105,9 +107,10 @@
 - Kicker: DATA AND METHODOLOGY (marker 2)
 - Headline: Deal data, an LLM that reads each press release, and machine learning produce three estimates, each tested
   only on deals the model has not seen
-- Card "Data": 4,468 US public takeovers announced 2001 to 2025, with deal terms, daily prices, and buyer and target
-  financials
-- Card "LLM": Claude Haiku reads each press release and extracts 29 contract terms plus the parties' stated closing date
+- Card "Data": 4,468 US public takeovers from S&P Capital IQ, 2001 to 2025, plus daily prices (CRSP), financials
+  (Compustat), and market data (FRED)
+- Card "LLM": Claude Haiku reads each SEC EDGAR press release and extracts 29 contract terms plus the parties' stated
+  closing date
 - Table "How each estimate is made and tested" (Time to closing / Break risk / Loss if a deal breaks):
   - Predicts: Days from announcement to closing / Adverse break, yes or no / Return from day-1 close to break, in %
   - Method: Boosted trees on deal, firm, and LLM data / Boosted trees on deal terms and financials / Historical
@@ -116,9 +119,9 @@
     out at a time
   - Tested on: 1,026 completed deals, 2019 to 2025 / 1,205 priced all-cash deals, 2013 to 2025 / 184 adverse breaks,
     2001 to 2025
-  - Benchmark: Deal-type median and parties' stated date / Day-1 spread / Fallback assumption
-- Strip: Output: The three estimates give each deal's expected annualized return (page 4), which ranks the deals each
-  year on earlier years only
+  - Benchmark: Median by deal type and parties' stated date / Day-1 spread / Fallback assumption
+- Strip: Output: The three estimates give each deal's expected annualized return, which ranks the deals each year on
+  earlier years only
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
 - Note(s): US public targets above $100m with a signed agreement; models tuned by cross-validation on training years;
@@ -138,19 +141,19 @@
 ## Page 6. Time to closing
 
 - Kicker: TIME TO CLOSING (marker 3)
-- Headline: The model beats the deal-type median and, using the parties' stated date, beats that date too, so spreads
-  can be annualized more precisely
+- Headline: The model beats the median by deal type, and with the parties' stated date it beats that date too, so
+  spreads can be annualized more precisely
 - Exhibit "Closing date error, in days(1)" (column chart; Benchmark, Model step, Final model): Median of all deals
-  72.62; Median by deal type 63.52; Model with deal terms 58.45; Plus financials and LLM terms 52.68; Plus stated
-  closing date 47.10; label "-16.42 days".
-- Exhibit "Error against the parties' stated date, in days(2)" (column chart): Parties' stated date 46.43; Model without
-  that date 46.86; Model with that date 39.82; bracket "-6.61 days [-9.51 to -3.86]".
-- Strip: Practical implication: Annualize spreads with the model forecast; deals closed a median of 14.50 days before
-  the parties' stated closing date
+  72.62; Median by deal type 63.52; Model with deal terms 58.45; Plus financials and LLM terms 52.68; Plus stated date
+  47.10; label "-16.42 days".
+- Exhibit "Closing date error on deals with a stated date, in days(2)" (column chart): Parties' stated date 46.43;
+  Model without stated date 46.86; Model with stated date 39.82; bracket "-6.61 days [-9.51 to -3.86]".
+- Strip: Practical implication: Annualize spreads with the model forecast; the stated date is a median of 14.50 days
+  too late, which understates the annualized spread
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
-- Note(s): (1) 1,026 completed deals, 2019 to 2025; whiskers are 95% intervals; (2) Only 807 of the 1,026 deals state a
-  closing date, so this comparison uses those 807.
+- Note(s): (1) 1,026 completed deals, 2019 to 2025; deal type = merger or tender offer; whiskers are 95% intervals;
+  (2) Only 807 of the 1,026 deals state a closing date, so this comparison uses those 807.
 - Speaker notes:
   - Video: not shown
   - Each input lowers the error; with the stated date the model beats that date
@@ -166,16 +169,16 @@
 - Kicker: BREAK RISK (marker 4)
 - Headline: The model does not beat the market price at predicting breaks, and more data does not reliably help, so
   break risk should come from the spread
-- Exhibit "Break risk ranking, AUC [95% interval](1)": Break model 0.60 [0.48 to 0.70]; Day-1 spread 0.72 [0.64 to
-  0.80]; label "-0.12 AUC [-0.28 to +0.00]".
-- Table with interval plot "Change in AUC as information is added step by step(2)" (Added information, Change [95%
-  interval]; axis at 0):
+- Exhibit "Break risk ranking, AUC [95% interval](1)": Model 0.60 [0.48 to 0.70]; Day-1 spread 0.72 [0.64 to 0.80];
+  label "-0.12 AUC [-0.28 to +0.00]".
+- Table with interval plot "Change in AUC from adding each input(2)" (Added information, Change [95% interval]; axis
+  at 0):
   - Buyer and target financials: +0.03 [-0.02 to +0.08]
   - Press release text and LLM-read terms: +0.02 [-0.01 to +0.06]
   - Product overlap of buyer and target: +0.01 [-0.01 to +0.02]
   - Market conditions: -0.03 [-0.05 to -0.00]
-- Box: Excluded evidence: An LLM risk score reached an AUC of 0.82, but the LLM named 92% of the anonymized targets, so
-  it may already know the outcome
+- Box: Excluded evidence: An LLM risk score reached an AUC of 0.82, but the LLM identified 92% of anonymized targets,
+  so it may know the outcome (look-ahead bias)
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
 - Note(s): (1) 1,205 priced deals; AUC = chance a broken deal ranks riskier than a closed one; bars from 0.50; gap not
@@ -195,8 +198,8 @@
 ## Page 8. Loss if a deal breaks
 
 - Kicker: LOSS IF A DEAL BREAKS (marker 5)
-- Headline: Broken deals lose 2.62 times what the fallback assumption implies, so positions should be sized for a much
-  larger loss
+- Headline: Adverse breaks lose 2.62 times the fallback assumption, so positions should be sized for a much larger
+  loss
 - Exhibit "Average loss in an adverse break, in %(1)": Historical average of 184 adverse breaks 27.94; Fallback
   assumption, price returns to pre-announcement level 10.67; label "2.62x".
 - Exhibit "Break probability at which a position breaks even, in %(2)" (line chart over "Day-1 spread, in %", 1 to 6):
@@ -220,14 +223,14 @@
 ## Page 9. Impact
 
 - Kicker: IMPACT (marker 6)
-- Headline: Buying the top third of deals by the model's expected return earns $1.67m more per $100m a year than the top
-  third by annualized spread
+- Headline: Buying the top third by the model's expected annualized return earns $1.67m more per $100m a year than the
+  top third by annualized spread
 - Exhibit "Annual return by third of deals, in %(1)" (By the model, By annualized spread): Top third 12.26 and 10.58;
   Middle third 3.07 and 2.75; Bottom third 2.25 and 2.13; label "+1.67 points".
 - Table "Top third by the model, in $m per $100m a year(2)" (Compared with, Difference [95% interval]):
   - All deals: +5.90 [3.92 to 7.97]
   - Top third by annualized spread: +1.67 [0.20 to 3.25]
-  - Same, 2019 to 2025 only: +3.14 [0.47 to 6.09]
+  - Same comparison, 2019 to 2025: +3.14 [0.47 to 6.09]
   - Top third by raw spread: +2.48 [0.95 to 4.14]
 - Table "Adverse breaks that land in the top third" (Ranked by, Adverse breaks): The model 22 of 38; Annualized spread
   26 of 38.
@@ -236,7 +239,7 @@
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
 - Note(s): (1) 1,205 priced all-cash deals, 2013 to 2025, ranked yearly on prior data; return = profit /
-  capital-years; break risk from a day-1 price model in 7 of 13 years, else the spread; (2) Bootstrap.
+  capital-years; break risk from a day-1 price model in 7 of 13 years, else the spread; (2) Bootstrap 95% intervals.
 - Speaker notes:
   - Video: 0:15
   - Top third 12.26% a year, $1.67m per $100m more than the annualized spread
@@ -253,12 +256,13 @@
 ## Page 10. Recommendation
 
 - Kicker: RECOMMENDATION (marker 7)
-- Headline: Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing
+- Headline: Use the model for timing and ranking, the spread for break risk, and a 31% loss estimate for sizing
 - Four steps:
-  - 1 TIMING: 47.10 days, average error, against 63.52 for the deal-type median; Annualize the spread with the forecast
+  - 1 TIMING: 47.10 days, average error, against 63.52 for the median by deal type; Annualize the spread with the
+    forecast
   - 2 BREAK RISK: 0.72, AUC of the spread, against 0.60 for the model; Read break risk from the spread
   - 3 SIZING: 31.21%, mean loss of 38 adverse breaks among ranked deals; Size each position for a 31% loss
-  - 4 RANKING: +$1.67m, a year per $100m; 95% interval 0.20 to 3.25; Rank by expected annualized return
+  - 4 RANKING: +$1.67m, per $100m a year; 95% interval 0.20 to 3.25; Rank by expected annualized return
 - Box "Limitations": 38 adverse breaks among ranked deals; losses vary widely (10th percentile of all 184 at -73.01%);
   before costs; daily-portfolio edge not confirmed; a day-1 price model gave break risk in 7 of 13 backtest years
 - Box "Next step": Run the ranking alongside the current process, with an agent underwriting each new deal (Project 2),
@@ -334,18 +338,18 @@
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
 - Note(s): (1) Mean absolute SHAP value, deals 2019 to 2025; associations only; (2) Each year scored by a model fitted
-  on earlier years; 1 to 12 adverse breaks a year; axis at 0.50; (3) 2,176 deals, 2013 to 2025.
+  on earlier years; 1 to 12 adverse breaks a year; bars from 0.50; (3) 2,176 deals, 2013 to 2025.
 - Numbers: drivers `results/shap.md` (`results/metrics.json`, `extras.shap.rows`); AUC by year and break rates
   (adverse breaks / deals, computed) `results/pooled_oot.json` (`by_year`).
 
 ## Page 15. A4
 
 - Kicker: TIME TO CLOSING AND LOSS IN DETAIL (marker A4)
-- Headline: The closing forecast has a lower error than the deal-type median in every segment, while no loss forecast
-  reliably beats the historical average
-- Exhibit "Closing date error by segment, in days(1)" (grouped column chart, Deal-type median and Model; label under
-  each segment): Mergers, "855 deals; -19.18", 73.14 and 53.96; Tender offers, "171 deals; -2.61", 15.40 and 12.79;
-  Bank deals, "157 deals; -25.93", 77.52 and 51.59; Cross-border, "186 deals; -19.14", 62.18 and 43.04.
+- Headline: The closing forecast has a lower error than the median by deal type in every segment, while no loss
+  forecast reliably beats the historical average
+- Exhibit "Closing date error by segment, in days(1)" (grouped column chart, Median by deal type and Model; label
+  under each segment): Mergers, "855 deals; -19.18", 73.14 and 53.96; Tender offers, "171 deals; -2.61", 15.40 and
+  12.79; Bank deals, "157 deals; -25.93", 77.52 and 51.59; Cross-border, "186 deals; -19.14", 62.18 and 43.04.
 - Table "Contribution of the press release [95% interval](2)" (Read from the press release by an LLM, Change in days):
   Contract terms (approvals, structure, and votes) -1.55 [-2.55 to -0.60]; Parties' stated closing date -5.80 [-7.33 to
   -4.23].
@@ -372,7 +376,7 @@
   2021, 2023, 2025: $352.40 Top half by the model; $315.42 Top half by raw spread; $260.20 All open deals.
 - Table "Daily portfolio with a 10% position cap(2)" (Portfolio, Annual return, Sharpe, Drawdown): Top half by the model
   9.57%, 0.80, -26.68%; Top half by raw spread 8.70%, 0.77, -22.83%; All open deals 7.19%, 0.72, -20.20%.
-- Table "Top minus bottom third: timing adds most [95% interval](3)" (Ranking, Points a year): All three estimates
+- Table "Top minus bottom third by estimates used [95% interval](3)" (Ranking, Points a year): All three estimates
   +10.01 [6.51 to 13.95]; Without the break-risk estimate +9.45 [5.73 to 13.90]; Without the timing estimate +8.15
   [4.48 to 12.35].
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
