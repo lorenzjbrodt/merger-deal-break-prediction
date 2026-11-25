@@ -124,8 +124,8 @@
   earlier years only
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
-- Note(s): US public targets above $100m with a signed agreement; models tuned by cross-validation on training years;
-  corrections in A1, alternative models in A2 and A4.
+- Note(s): Signed US public deals above $100m; models tuned by cross-validation; LLM terms checked against a stronger
+  model on 60 documents, fields below 85% agreement dropped; detail in A1, A2, and A4.
 - Speaker notes:
   - Video: 0:20
   - LLM reads press releases, models make three estimates, each tested on unseen deals
