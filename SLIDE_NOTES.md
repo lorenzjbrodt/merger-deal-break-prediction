@@ -15,7 +15,6 @@
 - A pitch without a live demo, pages in the order 1, 4, 5, 3, 9, 10.
 - Timings: page 1 0:05; page 4 0:30; page 5 0:20; page 3 0:30 (shown after page 5); page 9 0:15; page 10 0:20. Total
   2:00. The repo link is shown at the end.
-- The speaker notes in the deck give page 4 0:25 and page 9 0:20; the total is 2:00 either way.
 - Not shown in the video: pages 2, 6, 7, 8, and the appendix (11 to 16).
 
 ## Page 1. Cover
@@ -94,7 +93,7 @@
 - Note(s): (1) Medians of 1,205 priced all-cash deals, 2013 to 2025; 28.91 / 1.39 = 20.80; spread = offer price / day-1
   close - 1.
 - Speaker notes:
-  - Video: 0:25
+  - Video: 0:30
   - Close earns 1.39%, break costs 28.91%; three estimates decide the value
 - Numbers: all from `results/common_sample_outcomes.md` and `.json` (`pooled_2013_2025`: 1,205 deals, 1,150 closed, 38
   adverse breaks, 17 topped; outcome shares and median returns); 20.80 computed from the two medians shown. Formula:
@@ -239,7 +238,7 @@
 - Note(s): (1) 1,205 priced all-cash deals, 2013 to 2025, ranked yearly on prior data; return = profit /
   capital-years; break risk from a day-1 price model in 7 of 13 years, else the spread; (2) Bootstrap.
 - Speaker notes:
-  - Video: 0:20
+  - Video: 0:15
   - Top third 12.26% a year, $1.67m per $100m more than the annualized spread
 - Numbers: all from `results/expected_return.json`:
   - Thirds: `views.pooled.rankings.ear.terciles` and `rankings.spread_ann.terciles` (`annual_return`); the annualized
@@ -263,7 +262,7 @@
 - Box "Limitations": 38 adverse breaks among ranked deals; losses vary widely (10th percentile of all 184 at -73.01%);
   before costs; daily-portfolio edge not confirmed; a day-1 price model gave break risk in 7 of 13 backtest years
 - Box "Next step": Run the ranking alongside the current process, with an agent underwriting each new deal (Project 2),
-  and commit capital once live results confirm the edge
+  and invest once live results confirm the edge
 - Source(s): Own analysis; code and results at github.com/lorenzjbrodt/merger-deal-break-prediction.
 - Note(s): Evidence on pages 6 to 9.
 - Speaker notes:
@@ -287,8 +286,8 @@
   - SEC EDGAR: Press release for 88% of deals; an LLM extracts 29 contract terms and the stated closing date
   - CRSP (WRDS): Daily share prices for 93% of targets
   - Compustat, Hoberg-Phillips, FRED: Fundamentals, product overlap, and market conditions
-- Stat tiles "Corrections before modeling(2)": 100 higher competing bids, labeled as gains for the fund; 247 offers reset
-  to the announcement-day offer
+- Stat tiles "Corrections before modeling(2)": 100 higher competing bids labeled as gains; 247 offers reset to the
+  original offer
 - Exhibit "Cancellations by reason(1)" (legend: Gain for the fund, Adverse break): Higher competing bid 100; then "246
   adverse cancellations, 198 of them in the core sample": Mutual termination or other 77, Regulatory or antitrust block
   57, No reason stated 52, Shareholder vote failed 31, Buyer walked or adverse change 21, Financing failure 8.
@@ -328,10 +327,10 @@
   termination fee, % of value 0.13; Price-to-book multiple 0.09; Cash share of consideration 0.09; Target price vs.
   52-week high 0.08; Target termination fee, % of value 0.08; Acquirer price vs. 52-week high 0.07; Target cash to assets
   0.07.
-- Exhibit "AUC by year, range 0.41 to 0.92(2)", 2013 to 2025: 0.55, 0.77, 0.61, 0.77, 0.55, 0.55, 0.50, 0.61, 0.47,
-  0.84, 0.92, 0.68, 0.41.
-- Exhibit "Adverse break rate by announcement year, in %(3)", 2013 to 2025: 3.38, 3.57, 5.80, 1.54, 4.79, 4.81, 0.62,
-  8.74, 3.63, 6.08, 2.70, 3.45, 2.70.
+- Exhibit "AUC by year, range 0.41 to 0.92(2)": 2013 0.55; 2014 0.77; 2015 0.61; 2016 0.77; 2017 0.55; 2018 0.55; 2019
+  0.50; 2020 0.61; 2021 0.47; 2022 0.84; 2023 0.92; 2024 0.68; 2025 0.41.
+- Exhibit "Adverse break rate by announcement year, in %(3)": 2013 3.38; 2014 3.57; 2015 5.80; 2016 1.54; 2017 4.79;
+  2018 4.81; 2019 0.62; 2020 8.74; 2021 3.63; 2022 6.08; 2023 2.70; 2024 3.45; 2025 2.70.
 - Source(s): S&P Capital IQ, SEC EDGAR, CRSP and Compustat via WRDS, Hoberg-Phillips data library, and FRED; own
   analysis.
 - Note(s): (1) Mean absolute SHAP value, deals 2019 to 2025; associations only; (2) Each year scored by a model fitted
@@ -344,9 +343,9 @@
 - Kicker: TIME TO CLOSING AND LOSS IN DETAIL (marker A4)
 - Headline: The closing forecast has a lower error than the deal-type median in every segment, while no loss forecast
   reliably beats the historical average
-- Exhibit "Closing date error by segment, in days(1)" (grouped column chart, Deal-type median and Model; days saved
-  below each): Mergers, 855 deals, 73.14 and 53.96, -19.18; Tender offers, 171 deals, 15.40 and 12.79, -2.61; Bank
-  deals, 157 deals, 77.52 and 51.59, -25.93; Cross-border, 186 deals, 62.18 and 43.04, -19.14.
+- Exhibit "Closing date error by segment, in days(1)" (grouped column chart, Deal-type median and Model; label under
+  each segment): Mergers, "855 deals; -19.18", 73.14 and 53.96; Tender offers, "171 deals; -2.61", 15.40 and 12.79;
+  Bank deals, "157 deals; -25.93", 77.52 and 51.59; Cross-border, "186 deals; -19.14", 62.18 and 43.04.
 - Table "Contribution of the press release [95% interval](2)" (Read from the press release by an LLM, Change in days):
   Contract terms (approvals, structure, and votes) -1.55 [-2.55 to -0.60]; Parties' stated closing date -5.80 [-7.33 to
   -4.23].
@@ -369,8 +368,8 @@
 - Kicker: DAILY PORTFOLIO AND ATTRIBUTION (marker A5)
 - Headline: As a daily portfolio, ranking by the model earned more than ranking by raw spread at a similar Sharpe
   ratio, but the edge is not confirmed
-- Exhibit "Value of $100 invested in January 2013(1)", monthly to November 2026: $352.40 Top half by the model; $315.42
-  Top half by raw spread; $260.20 All open deals.
+- Exhibit "Value of $100 invested in January 2013(1)", monthly to November 2026, axis labels 2013, 2015, 2017, 2019,
+  2021, 2023, 2025: $352.40 Top half by the model; $315.42 Top half by raw spread; $260.20 All open deals.
 - Table "Daily portfolio with a 10% position cap(2)" (Portfolio, Annual return, Sharpe, Drawdown): Top half by the model
   9.57%, 0.80, -26.68%; Top half by raw spread 8.70%, 0.77, -22.83%; All open deals 7.19%, 0.72, -20.20%.
 - Table "Top minus bottom third: timing adds most [95% interval](3)" (Ranking, Points a year): All three estimates

@@ -106,7 +106,7 @@ Use the model for timing and ranking, the spread for break risk, and a 31% loss 
 the forecast, read break risk from the spread, size each position for 31.21%, and rank by expected annualized return.
 The model's top third holds 22 of the 38 priced adverse breaks, against 26 for the top third by annualized spread, so
 part of its return is pay for bearing break risk. Next step: run the ranking alongside the current process, with an
-agent underwriting each new deal (Project 2), and commit capital once live results confirm the edge.
+agent underwriting each new deal (Project 2), and invest once live results confirm the edge.
 
 ## Limitations
 

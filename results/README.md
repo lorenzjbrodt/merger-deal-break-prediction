@@ -3,6 +3,28 @@
 All tables are aggregates from the real data. "Test" = deals announced 2019-2025 (models trained on 2001-2018);
 "pooled" = deals announced 2013-2025, each year scored by models refitted on earlier years only.
 
+## Headline results
+
+| | Test 2019 to 2025 | Pooled 2013 to 2025 |
+|---|---|---|
+| Closing date error, days (deal-type median 63.52 / 61.02) | 47.10 [42.95 to 51.49] | 43.13 |
+| Deals inside the 80% interval for time to closing | 80% | 81% |
+| Break risk ranking, AUC on the same priced deals: model / day-1 spread | 0.632 / 0.643 | 0.599 / 0.721 |
+| Mean loss of adverse breaks among ranked deals | 37.89% (22 breaks) | 31.21% (38 breaks) |
+| Top minus bottom third by expected annualized return, points a year | +12.62 [+5.31 to +20.33] | +10.01 [+6.51 to +13.95] |
+| Top third by the model minus top third by annualized spread ($m per $100m a year) | +3.14 [+0.47 to +6.09] | +1.67 [+0.20 to +3.25] |
+| Top third by the model minus top third by raw spread ($m per $100m a year) | +4.05 [+1.55 to +7.08] | +2.48 [+0.95 to +4.14] |
+| Daily portfolio, top half by the model minus top half by raw spread, points a year | +0.11 [-2.92 to +3.17] | +0.87 [-0.88 to +2.60] |
+
+- **Timing**: with the parties' stated closing date, the model beats that date by 6.61 days [3.86 to 9.51]; deals
+  closed a median of 14.50 days before it (page 6).
+- **Break risk, more data does not reliably help** (pooled AUC change, each row vs. the model without it, page 7): buyer
+  and target financials +0.025 [-0.025 to +0.076]; press release text and LLM-read terms +0.022 [-0.014 to +0.059];
+  product overlap +0.006 [-0.010 to +0.019]; market conditions -0.028 [-0.054 to -0.002]; ten day-1 market signals added
+  to the spread -0.125 [-0.246 to -0.010]. The same LLM-read terms cut the closing date error by 1.55 days [-2.55 to
+  -0.60].
+- **Loss**: no loss forecast reliably beat the historical average (page 15).
+
 ## The three numbers and the dollar result
 
 | File | Content |
