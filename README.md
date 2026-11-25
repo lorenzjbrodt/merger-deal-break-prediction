@@ -2,10 +2,11 @@
 
 MIT 15.071 Project 1 (Predictive AI), Lorenz J. Brodt. [Project page](https://lorenzjbrodt.github.io/merger-deal-break-prediction/)
 
-**Result.** AI improves deal timing and ranking, the market price remains the better break signal, and breaks cost far
-more than assumed (deck page 3). The closing date error is 47.10 days against 63.52 for the deal-type median; the
-day-1 spread ranks break risk with an AUC of 0.72 against 0.60 for the model on the same deals; adverse breaks lose
-27.94% on average (historical average of 184 breaks), 2.62x the 10.67% fallback assumption.
+**Result.** AI improves deal timing and ranking but does not beat the market price on break risk, and breaks cost far
+more than assumed (deck page 3). The closing date error is 47.10 days against 63.52 for the deal-type median. On break
+risk the model does not beat the day-1 spread: its AUC is 0.60 against 0.72 on the same deals, a gap of -0.12 AUC [-0.28
+to +0.005] that is not significant at 95%. LLM-read contract terms improve timing but not break risk. Adverse breaks
+lose 27.94% on average (historical average of 184 breaks), 2.62x the 10.67% fallback assumption.
 **Recommendation.** Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing (page
 10). Ranked by expected annualized return, the top third earned 12.26% a year, $1.67m per $100m a year more than the top
 third by annualized spread [0.20 to 3.25] and 2.48 points more than by raw spread [0.95 to 4.14], before costs. Size
@@ -30,15 +31,15 @@ reason other than a higher bid), and the loss if a deal breaks.
 | | Time to closing | Break risk | Loss if a deal breaks |
 |---|---|---|---|
 | Predicts | Days from announcement to closing | Adverse break, yes or no | Return from day-1 close to break, in % |
-| Method | Boosted trees on deal, firm, and LLM data | Boosted trees, adding day-1 market data | Historical average; no model beat it reliably |
+| Method | Boosted trees on deal, firm, and LLM data | Boosted trees on deal terms and financials | Historical average; no model beat it reliably |
 | Learns from | Deals announced 2001 to 2018 | All earlier years, refitted each year | All other years, one year left out at a time |
 | Tested on | 1,026 completed deals, 2019 to 2025 | 1,205 priced all-cash deals, 2013 to 2025 | 184 adverse breaks, 2001 to 2025 |
 | Benchmark | Deal-type median and parties' stated date | Day-1 spread | Fallback assumption |
 
 The three estimates give each deal's expected annualized return, (P(close) x spread + P(topped) x topping gain -
-P(break) x loss) / years to resolution, which ranks the deals within each year. In the ranking, break risk comes from
-the day-1 model in 7 of 13 years (picked by cross-validation on prior years), else the spread. Deals are bought at the
-day-1 close and held to the outcome. Brackets are bootstrap 95% intervals.
+P(break) x loss) / years to resolution, which ranks the deals each year on earlier years only. In the ranking, break
+risk comes from a day-1 price model in 7 of 13 years (picked by cross-validation on prior years), else the spread. Deals
+are bought at the day-1 close and held to the outcome. Brackets are bootstrap 95% intervals.
 
 ## Headline results
 
@@ -55,17 +56,18 @@ day-1 close and held to the outcome. Brackets are bootstrap 95% intervals.
 
 - **Timing**: with the parties' stated closing date, the model beats that date by 6.61 days [3.86 to 9.51]; deals
   closed a median of 14.50 days before it (page 6).
-- **Break risk, nothing closes the gap** (pooled AUC change, page 7): buyer and target financials +0.025 [-0.025 to
-  +0.076]; press release text and LLM-read terms +0.022 [-0.014 to +0.059]; product overlap +0.006 [-0.010 to +0.019];
-  market conditions -0.028 [-0.054 to -0.002]; ten day-1 market signals added to the spread -0.125 [-0.246 to -0.010].
+- **Break risk, more data does not reliably help** (pooled AUC change, each row vs. the model without it, page 7): buyer
+  and target financials +0.025 [-0.025 to +0.076]; press release text and LLM-read terms +0.022 [-0.014 to +0.059];
+  product overlap +0.006 [-0.010 to +0.019]; market conditions -0.028 [-0.054 to -0.002]; ten day-1 market signals added
+  to the spread -0.125 [-0.246 to -0.010]. The same LLM-read terms cut the closing date error by 1.55 days [-2.55 to
+  -0.60].
 - **Loss**: no loss forecast reliably beat the historical average (page 15).
 
-**How to read the results.** The ranking edge is significant deal by deal (top third vs. annualized spread +1.67 [0.20
-to 3.25], vs. raw spread +2.48 [0.95 to 4.14], 2019 to 2025 +3.14 [0.47 to 6.09]); the daily-portfolio test (top half,
-overlapping positions, equal weights) is positive but not significant, +0.87 [-0.88 to +2.60], so it neither confirms
-the edge nor shows it is zero. Timing contributes most: top minus bottom third falls from +10.01 to +8.15 points a year
-without the timing estimate, and to +9.45 without the break-risk estimate. Sizing (31.21% loss) is in neither test,
-which use equal weights; it lowers risk per position, not the average return.
+**How to read the results.** The ranking edge is significant deal by deal: top third +1.67 [0.20 to 3.25] vs. annualized
+spread, +2.48 [0.95 to 4.14] vs. raw spread, +3.14 [0.47 to 6.09] in 2019 to 2025. The daily-portfolio test (top half,
+overlapping positions, equal weights) gives +0.87 [-0.88 to +2.60]: positive, not significant, so it neither confirms
+nor rules out the edge. Timing adds most: top minus bottom third falls from +10.01 to +8.15 points without it, to +9.45
+without break risk. Sizing (31.21% loss) is outside both equal-weight tests; it cuts risk, not average return.
 
 Everything else: [results/](results/README.md), [DECISIONS.md](DECISIONS.md), [SLIDE_NOTES.md](SLIDE_NOTES.md) (deck
 text and the source of every number).
@@ -92,6 +94,6 @@ python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
   all 184 at -73.01%).
 - **Before costs**: no transaction or financing costs, equal weights, and unlimited capacity.
 - **Pay for break risk**: the model's top third holds 22 of the 38 priced adverse breaks, against 26 for the top third
-  by annualized spread, so part of the return is pay for bearing break risk. The backtest used the model's break risk
-  in 7 of 13 years.
+  by annualized spread, so part of the return is pay for bearing break risk. A day-1 price model gave break risk in 7 of
+  13 backtest years.
 - **Licensed vendor data** with known flaws (final terms stored, sparse fields for canceled deals).

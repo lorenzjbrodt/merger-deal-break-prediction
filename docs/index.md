@@ -3,10 +3,11 @@
 MIT 15.071, Project 1 (Predictive AI). Solo project by Lorenz J. Brodt.
 Code and full results: <https://github.com/lorenzjbrodt/merger-deal-break-prediction>
 
-**Result.** AI improves deal timing and ranking, the market price remains the better break signal, and breaks cost far
-more than assumed. The closing date error is 47.10 days against 63.52 for the deal-type median; the day-1 spread ranks
-break risk with an AUC of 0.72 against 0.60 for the model on the same deals; adverse breaks lose 27.94% on average,
-2.62x the 10.67% fallback assumption.
+**Result.** AI improves deal timing and ranking but does not beat the market price on break risk, and breaks cost far
+more than assumed. The closing date error is 47.10 days against 63.52 for the deal-type median. On break risk the model
+does not beat the day-1 spread: its AUC is 0.60 against 0.72 on the same deals, a gap of -0.12 AUC [-0.28 to +0.005]
+that is not significant at 95%. LLM-read contract terms improve timing but not break risk. Adverse breaks lose 27.94% on
+average (historical average of 184 breaks), 2.62x the 10.67% fallback assumption.
 **Recommendation.** Use the model for timing and ranking, the spread for break risk, and a 31% loss for sizing.
 Ranked by expected annualized return, the top third earned 12.26% a year, $1.67m per $100m a year more than the top
 third by annualized spread [0.20 to 3.25], before costs. Size for 31.21%, the mean loss of the 38 adverse breaks among
@@ -33,14 +34,14 @@ whether ranking deals by the expected annualized return they imply makes money o
   product similarity of buyer and target (Hoberg-Phillips).
 - **Models and tests.** Time to closing: boosted trees on deal, firm, and LLM data, trained on 2001-2018 and tested on
   1,026 completed deals announced 2019-2025, against the deal-type median and the parties' stated date. Break risk:
-  boosted trees adding day-1 market data, refitted each year on all earlier years and tested on 1,205 priced all-cash
-  deals announced 2013-2025, against the day-1 spread. Loss if a deal breaks: the historical average, since no model
-  beat it reliably, checked on 184 adverse breaks 2001-2025 with one year left out at a time, against the fallback
+  boosted trees on deal terms and financials, refitted each year on all earlier years and tested on 1,205 priced
+  all-cash deals announced 2013-2025, against the day-1 spread. Loss if a deal breaks: the historical average, since no
+  model beat it reliably, checked on 184 adverse breaks 2001-2025 with one year left out at a time, against the fallback
   assumption.
-- **Ranking.** The three estimates give each deal's expected annualized return, which ranks the deals within each year.
-  In the ranking, break risk comes from the day-1 model in 7 of 13 years (picked by cross-validation on prior years),
-  else the spread. Positions are entered at the close one trading day after the announcement; returns are before
-  costs. Intervals are bootstrap 95% intervals.
+- **Ranking.** The three estimates give each deal's expected annualized return, which ranks the deals each year on
+  earlier years only. In the ranking, break risk comes from a day-1 price model in 7 of 13 years (picked by
+  cross-validation on prior years), else the spread. Positions are entered at the close one trading day after the
+  announcement; returns are before costs. Intervals are bootstrap 95% intervals.
 
 ![Deals and break rates by year](figures/break_rate_by_year.png)
 
@@ -57,7 +58,7 @@ closed a median of 14.50 days before it. The contract terms read by the LLM cut 
 
 ![Time to closing](figures/duration.png)
 
-### 2. Break risk: the day-1 spread does it better
+### 2. Break risk: the model does not beat the day-1 spread
 
 | Adverse breaks, ROC AUC [95% interval] | Test 2019-2025 | Pooled out-of-time 2013-2025 |
 |---|---|---|
@@ -68,9 +69,12 @@ closed a median of 14.50 days before it. The contract terms read by the LLM cut 
 | Final model on the same deals | 0.632 [0.519 to 0.734] | 0.599 [0.476 to 0.702] |
 
 Test: 1,083 deals, 40 adverse breaks (623 priced all-cash, 22 breaks). Pooled: 2,176 deals, 84 adverse breaks (1,205
-priced, 38 breaks). Buyer and target financials, press release text and LLM-read terms, product overlap, market
-conditions, and ten further day-1 market signals each change the AUC by an amount whose interval includes zero or is
-negative. The model keys on financial weakness and deal structure and is blind to what blocks clean cash deals.
+priced, 38 breaks). On the 1,205 priced deals the model's AUC is 0.599 against 0.721 for the day-1 spread, a gap of
+-0.12 AUC [-0.28 to +0.005] that is not significant at 95%, so the model does not beat the spread. More data does not
+reliably help: buyer and target financials, press release text and LLM-read terms, product overlap, market conditions,
+and ten further day-1 market signals each change the AUC by an amount whose interval includes zero or is negative. The
+LLM-read terms improve timing (section 1) but not break risk. The model keys on financial weakness and deal structure
+and is blind to what blocks clean cash deals.
 
 ![Model versus market](figures/model_vs_market.png)
 
@@ -111,8 +115,8 @@ agent underwriting each new deal (Project 2), and commit capital once live resul
   only 13 years.
 - **Before costs.** No transaction or financing costs, equal weights, unlimited capacity, and every deal bought at the
   day-1 close.
-- **Break risk in the backtest.** The ranking used the model's break risk in 7 of 13 years; the daily-portfolio edge is
-  not confirmed.
+- **Break risk in the backtest.** A day-1 price model gave break risk in 7 of 13 backtest years; the daily-portfolio
+  edge is not confirmed.
 - **Licensed vendor data.** Results can be rebuilt only with Capital IQ and WRDS access. The vendor fills fewer fields
   for canceled deals, stores final terms, and 15% of breaks have no stated reason. An audit of 80 deal statuses against
   SEC filings found 3 of 76 checkable ones contradicted.
