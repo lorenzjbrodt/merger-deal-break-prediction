@@ -1,7 +1,7 @@
 # Results: where to find what
 
-All tables are aggregates from the real data. "Test" = deals announced 2019-2025 (models trained on 2001-2018);
-"pooled" = deals announced 2013-2025, each year scored by models refitted on earlier years only.
+All tables are aggregates from the real data. “Test” = deals announced 2019 to 2025 (models trained on 2001 to 2018);
+“pooled” = deals announced 2013 to 2025, each year scored by models refitted on earlier years only.
 
 ## Headline results
 
@@ -16,7 +16,7 @@ All tables are aggregates from the real data. "Test" = deals announced 2019-2025
 | Top third by the model minus top third by raw spread ($m per $100m a year) | +4.05 [+1.55 to +7.08] | +2.48 [+0.95 to +4.14] |
 | Daily portfolio, top half by the model minus top half by raw spread, points a year | +0.11 [-2.92 to +3.17] | +0.87 [-0.88 to +2.60] |
 
-- **Timing**: with the parties' stated closing date, the model beats that date by 6.61 days [3.86 to 9.51]; deals
+- **Timing**: with the parties’ stated closing date, the model beats that date by 6.61 days [3.86 to 9.51]; deals
   closed a median of 14.50 days before it (page 6).
 - **Break risk, more data does not reliably help** (pooled AUC change, each row vs. the model without it, page 7): buyer
   and target financials +0.025 [-0.025 to +0.076]; press release text and LLM-read terms +0.022 [-0.014 to +0.059];
@@ -34,8 +34,8 @@ All tables are aggregates from the real data. "Test" = deals announced 2019-2025
 | [closing_guidance_validation.md](closing_guidance_validation.md) | How the stated expected closing was read from press releases and checked |
 | [loss_given_break.md](loss_given_break.md) | Loss if a deal breaks and gain if it is topped; forecasts |
 | [benchmark_table.md](benchmark_table.md) | Break model ladder, test period, four target and sample combinations, day-1 step |
-| [pooled_oot.md](pooled_oot.md) | Break model ladder, pooled out-of-time 2013-2025 |
-| [market_benchmark.md](market_benchmark.md) | Break model against the market's day-1 spread |
+| [pooled_oot.md](pooled_oot.md) | Break model ladder, pooled out-of-time 2013 to 2025 |
+| [market_benchmark.md](market_benchmark.md) | Break model against the market’s day-1 spread |
 | [day1_signals.md](day1_signals.md) | Ten day-1 market signals beyond the spread (pre-specified, evaluated once) |
 | [overlap.md](overlap.md) | Antitrust overlap features (Hoberg-Phillips similarity, industry shares) |
 | [backtest.md](backtest.md) | Skip rules and the model-versus-market rule, daily marks |

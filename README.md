@@ -20,7 +20,7 @@ A merger arbitrage fund buys the target after a deal is announced. At the median
 2013 to 2025). An adverse break is a cancellation for a reason other than a higher bid.
 
 - **Capital IQ**: 4,744 signed US public deals, 2001 to 2025; 4,468 without reverse mergers, with 198 adverse breaks.
-- **SEC EDGAR**: press releases for 88% of deals; Claude Haiku reads each into 29 contract terms plus the parties'
+- **SEC EDGAR**: press releases for 88% of deals; Claude Haiku reads each into 29 contract terms plus the parties’
   stated closing date ([validation](results/llm_extraction_validation.md)).
 - **CRSP daily prices** (WRDS) for 93% of targets; Compustat; Hoberg-Phillips product similarity; FRED.
 
@@ -32,9 +32,9 @@ A merger arbitrage fund buys the target after a deal is announced. At the median
 | Method | Boosted trees on deal, firm, and LLM data | Boosted trees on deal terms and financials | Historical average; no model beat it reliably |
 | Learns from | Deals announced 2001 to 2018 | All earlier years, refitted each year | All other years, one year left out at a time |
 | Tested on | 1,026 completed deals, 2019 to 2025 | 1,205 priced all-cash deals, 2013 to 2025 | 184 adverse breaks, 2001 to 2025 |
-| Benchmark | Median by deal type and parties' stated date | Day-1 spread | Fallback assumption |
+| Benchmark | Median by deal type and parties’ stated date | Day-1 spread | Fallback assumption |
 
-The three estimates give each deal's expected annualized return, (P(close) x spread + P(topped) x topping gain -
+The three estimates give each deal’s expected annualized return, (P(close) x spread + P(topped) x topping gain -
 P(break) x loss) / years to resolution, which ranks the deals each year on earlier years only. In the ranking, break
 risk comes from a day-1 price model in 7 of 13 years (picked by cross-validation on prior years), else the spread. Deals
 are bought at the day-1 close and held to the outcome. Brackets are bootstrap 95% intervals.
@@ -50,11 +50,12 @@ Full results table and the source of every number: [results/README.md](results/R
 ## Reproduce
 
 Data and access ([DATA.md](DATA.md) has the screens and one-off setup): the S&P Capital IQ transaction screen export
-(licensed) goes to `data/raw/ciq_transactions_v2.xls`, with monthly prices in `data/raw/ciq_prices_{1,2,3}.xls`; CRSP and
-Compustat come through a WRDS account (a `wrds-pgdata` line in `~/.pgpass`, pulls cached in `data/wrds/`); FRED and
+(licensed) goes to `data/raw/ciq_transactions_v2.xls`, with monthly prices in `data/raw/ciq_prices_{1,2,3}.xls`; CRSP
+and Compustat come through a WRDS account (a `wrds-pgdata` line in `~/.pgpass`, pulls cached in `data/wrds/`); FRED and
 Hoberg-Phillips files go to `data/external/`; SEC EDGAR press releases are downloaded by the pipeline (set
 `SEC_USER_AGENT`), and the LLM steps need a logged-in `claude` CLI. All of these paths are git-ignored. `./run_all.sh`
-rebuilds `results/` from them; `./run_all.sh synthetic` runs the same pipeline on synthetic rows without any license.
+rebuilds `results/` from them; `./run_all.sh synthetic` runs data preparation, text features, and the break model on
+synthetic rows without any license, as a smoke test; the time-to-closing and ranking results need the licensed data.
 
 ```bash
 python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
@@ -67,6 +68,6 @@ python3.13 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 - **Few events**: 38 adverse breaks among ranked deals (22 in the test period); losses vary widely (10th percentile of
   all 184 at -73.01%). **Before costs**: no transaction or financing costs, equal weights, and unlimited capacity.
-- **Pay for break risk**: the model's top third holds 22 of the 38 priced adverse breaks, against 26 for the top third
+- **Pay for break risk**: the model’s top third holds 22 of the 38 priced adverse breaks, against 26 for the top third
   by annualized spread, so part of the return is pay for bearing break risk. A day-1 price model gave break risk in 7 of
   13 backtest years. **Licensed vendor data** with known flaws (final terms stored, sparse fields for canceled deals).

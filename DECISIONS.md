@@ -457,3 +457,12 @@ fine-tuned encoder, price data, evaluation rigor, demo, project page).
     loss of the 38 adverse breaks among the 1,205 ranked all-cash deals (31.21%, `results/common_sample_outcomes.md`),
     the sample the ranking and the expected annualized return use; 27.94% stays as the mean over all 184 adverse breaks
     (slide 7). SLIDE_NOTES.md, the README and the project page follow; no result changed.
+
+## Final deck (vF)
+
+126. **Final deck (vF).** The deck has 10 main pages, a divider, and A1 to A5 (16 pages in all); SLIDE_NOTES.md quotes
+    it verbatim. The final wording is "median by deal type" and "a 31% loss estimate for sizing". The notes on pages 3
+    and 9 state that the +1.67 gap is computed before rounding (12.26 - 10.58 shows 1.68; the unrounded thirds are
+    12.2559 and 10.5825, `results/expected_return.json`). Market conditions shows -0.03 [-0.05 to -0.00] from the pooled
+    value -0.028 [-0.054 to -0.002] (`results/pooled_oot.json`). Entries 124 and 125 describe intermediate versions of the
+    deck; no result changed at any step.
